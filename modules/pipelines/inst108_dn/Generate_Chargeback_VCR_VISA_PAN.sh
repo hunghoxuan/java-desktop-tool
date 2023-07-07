@@ -1,1 +1,0 @@
-. $PATH010EDITOR/Apply_script_2.sh VISA_Gen_Chargeback_VCR_PAN.1sc "$1" "/CI_Pipeline/Profiles/BNZ_PREG_INST108_DN/uploads/$2" "$3"

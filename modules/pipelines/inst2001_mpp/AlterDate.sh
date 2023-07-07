@@ -1,1 +1,0 @@
-rm -rf "/CI_Pipeline/Profiles/merchant_portal/uploads/$1.inc" && . $PATH010EDITOR/Apply_script.sh AlterTransDateFDMS.1sc "/CI_Pipeline/Profiles/merchant_portal/uploads/$1" "/CI_Pipeline/Profiles/merchant_portal/uploads/$1.inc"

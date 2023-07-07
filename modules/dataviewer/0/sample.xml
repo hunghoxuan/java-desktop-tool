@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ROOT>
+	<param key=":institution_number">
+	</param>
+	<SQLQueryDefinition>
+		<SQLQueryLabel>
+			xxxx
+		</SQLQueryLabel>
+		<SQLQuery>
+			xxx
+		</SQLQuery>
+		<TransmittedConditionColumns>
+			xxx
+		</TransmittedConditionColumns>
+	</SQLQueryDefinition>
+	<SQLQueryDefinition suppressDisplayIfNoData="true">
+		<SQLQueryLabel>
+			xxxx
+		</SQLQueryLabel>
+		<SQLQuery>
+			xxxx
+		</SQLQuery>
+		<ResultColumns>
+			xxx
+		</ResultColumns>
+		<TransmittedConditionColumns>
+			xxx
+		</TransmittedConditionColumns>
+		<SuperSQLQuery>
+			xxx
+		</SuperSQLQuery>
+	</SQLQueryDefinition>
+</ROOT>
