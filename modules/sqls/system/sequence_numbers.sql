@@ -1,0 +1,1 @@
+select * from cbr_sequence_numbers where  institution_number = '&institution_number' order by 1; 

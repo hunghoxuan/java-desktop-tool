@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "copyClient"> 
+	<TableExtractDefinition TableName="CIS*" ColumnName="CLIENT_NUMBER"> 
+		<WhereClause> INSTITUTION_NUMBER = ':institution_number' and CLIENT_NUMBER in ( 	select distinct client_number from (
+ 		select
+ 		    lnk.GROUP_NUMBER,
+ 		    lnk.PARENT_CLIENT_NUMBER,
+            cdet.CLIENT_NUMBER,
+            lnk.EFFECTIVE_DATE,
+            cdet.INSTITUTION_NUMBER,
+            lnk.CONTRACT_STATUS,
+            lnk.SERVICE_CONTRACT_ID,
+            lnk.CLIENT_LEVEL
+          from
+            BW3.CIS_CLIENT_DETAILS cdet,
+            BW3.CIS_CLIENT_LINKS lnk
+          where (
+            cdet.INSTITUTION_NUMBER = ':institution_number'
+            and lnk.INSTITUTION_NUMBER = cdet.INSTITUTION_NUMBER
+            and lnk.CLIENT_NUMBER = cdet.CLIENT_NUMBER
+            and lnk.CONTRACT_STATUS in (
+              '001', '002', '003'
+            )
+            and lnk.EFFECTIVE_DATE = (
+              select max(sublnk.EFFECTIVE_DATE)
+              from BW3.CIS_CLIENT_LINKS sublnk
+              where (
+                sublnk.CLIENT_NUMBER = lnk.CLIENT_NUMBER
+                and sublnk.GROUP_NUMBER = lnk.GROUP_NUMBER
+                and sublnk.SERVICE_CONTRACT_ID = lnk.SERVICE_CONTRACT_ID
+                and sublnk.INSTITUTION_NUMBER = lnk.INSTITUTION_NUMBER
+                and sublnk.CLIENT_LEVEL = lnk.CLIENT_LEVEL
+                and sublnk.EFFECTIVE_DATE &lt; '20300131'
+              )
+            )
+          )
+        ) lnk
+        start with (
+          lnk.CLIENT_NUMBER = ':client_number'
+          and lnk.INSTITUTION_NUMBER = ':institution_number'
+        )
+        connect by (
+          prior lnk.CLIENT_NUMBER = lnk.PARENT_CLIENT_NUMBER
+          and prior lnk.GROUP_NUMBER = lnk.GROUP_NUMBER
+          and prior lnk.INSTITUTION_NUMBER = lnk.INSTITUTION_NUMBER
+          and prior lnk.CLIENT_LEVEL != '001'
+          and prior lnk.CLIENT_NUMBER != lnk.INSTITUTION_NUMBER
+        )
+	) 
+	</WhereClause>		
+	</TableExtractDefinition>
+		<TableExtractDefinition TableName="SVC*" ColumnName="CLIENT_NUMBER"> 
+		<WhereClause> INSTITUTION_NUMBER = ':institution_number' and CLIENT_NUMBER in ( select distinct client_number from (
+			select
+				lnk.GROUP_NUMBER,
+				lnk.PARENT_CLIENT_NUMBER,
+				cdet.CLIENT_NUMBER,
+				lnk.EFFECTIVE_DATE,
+				cdet.INSTITUTION_NUMBER,
+				lnk.CONTRACT_STATUS,
+				lnk.SERVICE_CONTRACT_ID,
+				lnk.CLIENT_LEVEL
+			  from
+				BW3.CIS_CLIENT_DETAILS cdet,
+				BW3.CIS_CLIENT_LINKS lnk
+			  where (
+				cdet.INSTITUTION_NUMBER = ':institution_number'
+				and lnk.INSTITUTION_NUMBER = cdet.INSTITUTION_NUMBER
+				and lnk.CLIENT_NUMBER = cdet.CLIENT_NUMBER
+				and lnk.CONTRACT_STATUS in (
+				  '001', '002', '003'
+				)
+				and lnk.EFFECTIVE_DATE = (
+				  select max(sublnk.EFFECTIVE_DATE)
+				  from BW3.CIS_CLIENT_LINKS sublnk
+				  where (
+					sublnk.CLIENT_NUMBER = lnk.CLIENT_NUMBER
+					and sublnk.GROUP_NUMBER = lnk.GROUP_NUMBER
+					and sublnk.SERVICE_CONTRACT_ID = lnk.SERVICE_CONTRACT_ID
+					and sublnk.INSTITUTION_NUMBER = lnk.INSTITUTION_NUMBER
+					and sublnk.CLIENT_LEVEL = lnk.CLIENT_LEVEL
+					and sublnk.EFFECTIVE_DATE &lt; '20300131'
+				  )
+				)
+			  )
+			) lnk
+			start with (
+			  lnk.CLIENT_NUMBER = ':client_number'
+			  and lnk.INSTITUTION_NUMBER = ':institution_number'
+			)
+			connect by (
+			  prior lnk.CLIENT_NUMBER = lnk.PARENT_CLIENT_NUMBER
+			  and prior lnk.GROUP_NUMBER = lnk.GROUP_NUMBER
+			  and prior lnk.INSTITUTION_NUMBER = lnk.INSTITUTION_NUMBER
+			  and prior lnk.CLIENT_LEVEL != '001'
+			  and prior lnk.CLIENT_NUMBER != lnk.INSTITUTION_NUMBER
+			) 
+		) 
+		</WhereClause>		
+	</TableExtractDefinition>
+		
+	<TableExtractDefinition TableName="CAS*" ColumnName="CLIENT_NUMBER"> 
+		<WhereClause> INSTITUTION_NUMBER = ':institution_number' and  CLIENT_NUMBER in (select distinct client_number from (
+ 		select
+ 		    lnk.GROUP_NUMBER,
+ 		    lnk.PARENT_CLIENT_NUMBER,
+            cdet.CLIENT_NUMBER,
+            lnk.EFFECTIVE_DATE,
+            cdet.INSTITUTION_NUMBER,
+            lnk.CONTRACT_STATUS,
+            lnk.SERVICE_CONTRACT_ID,
+            lnk.CLIENT_LEVEL
+          from
+            BW3.CIS_CLIENT_DETAILS cdet,
+            BW3.CIS_CLIENT_LINKS lnk
+          where (
+            cdet.INSTITUTION_NUMBER = ':institution_number'
+            and lnk.INSTITUTION_NUMBER = cdet.INSTITUTION_NUMBER
+            and lnk.CLIENT_NUMBER = cdet.CLIENT_NUMBER
+            and lnk.CONTRACT_STATUS in (
+              '001', '002', '003'
+            )
+            and lnk.EFFECTIVE_DATE = (
+              select max(sublnk.EFFECTIVE_DATE)
+              from BW3.CIS_CLIENT_LINKS sublnk
+              where (
+                sublnk.CLIENT_NUMBER = lnk.CLIENT_NUMBER
+                and sublnk.GROUP_NUMBER = lnk.GROUP_NUMBER
+                and sublnk.SERVICE_CONTRACT_ID = lnk.SERVICE_CONTRACT_ID
+                and sublnk.INSTITUTION_NUMBER = lnk.INSTITUTION_NUMBER
+                and sublnk.CLIENT_LEVEL = lnk.CLIENT_LEVEL
+                and sublnk.EFFECTIVE_DATE &lt; '20300131'
+              )
+            )
+          )
+        ) lnk
+        start with (
+          lnk.CLIENT_NUMBER = ':client_number'
+          and lnk.INSTITUTION_NUMBER = ':institution_number'
+        )
+        connect by (
+          prior lnk.CLIENT_NUMBER = lnk.PARENT_CLIENT_NUMBER
+          and prior lnk.GROUP_NUMBER = lnk.GROUP_NUMBER
+          and prior lnk.INSTITUTION_NUMBER = lnk.INSTITUTION_NUMBER
+          and prior lnk.CLIENT_LEVEL != '001'
+          and prior lnk.CLIENT_NUMBER != lnk.INSTITUTION_NUMBER
+        )
+		) </WhereClause>		
+	</TableExtractDefinition>
+</Module>
+</root>

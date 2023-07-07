@@ -1,0 +1,3 @@
+select (index_field || '-' || (case when INSTR(&field, index_field) > 0 then substr(&field, INSTR(&field, index_field) + 4) else &field end)) as response from &table where institution_number = '&institution_number';
+
+update &table set &field = (index_field || '-' || (case when INSTR(&field, index_field) > 0 then substr(&field, INSTR(&field, index_field) + 4) else &field end)) where institution_number = '&institution_number';

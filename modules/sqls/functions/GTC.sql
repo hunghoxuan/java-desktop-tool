@@ -1,0 +1,82 @@
+FUNCTION "GTC" (P_TABLE VARCHAR2, P_COLUMN VARCHAR2 := '*', P_VALUE VARCHAR2:=NULL) -- Added CREATE OR REPLACE predicate
+   RETURN VARCHAR2
+IS
+   RETURNVAL       VARCHAR2 (8000);
+   DESCFIELDNAME   VARCHAR2 (30);
+   BWTNAME		   VARCHAR2 (30);
+   INDEXFIELD	   VARCHAR2 (30);
+   STRSQL          VARCHAR2 (4000);
+   --
+   RGTC GUI_TAB_COLUMNS%ROWTYPE;
+   --
+   FUNCTION GETBWTVAL(P_BWT VARCHAR2, P_INDEX VARCHAR2, P_DESC VARCHAR2, P_VAL VARCHAR2, P_DTE VARCHAR2) RETURN VARCHAR2 RESULT_CACHE IS
+     V_RET  VARCHAR2(200);
+     V_SQL  VARCHAR2(2000);
+   BEGIN
+     --
+     V_SQL :=
+         'SELECT max('
+      || P_DESC
+      || ') FROM '
+      || P_BWT
+      || ' WHERE 1=1 /*institution_number = ''00000001''*/'
+      || ' AND LANGUAGE = ''USA'''
+      || ' AND ' || P_INDEX || ' = ''' || P_VALUE || '''';
+    --
+    EXECUTE IMMEDIATE V_SQL INTO V_RET;
+    --
+    RETURN P_VAL||' '||V_RET;
+   END;
+   --
+   FUNCTION GETGTC (P_TABLE VARCHAR2, P_COLUMN VARCHAR2 ) RETURN GUI_TAB_COLUMNS%ROWTYPE RESULT_CACHE RELIES_ON (GUI_TAB_COLUMNS)  IS
+     V_RGTC GUI_TAB_COLUMNS%ROWTYPE;
+   BEGIN
+     SELECT *
+     INTO V_RGTC
+     FROM GUI_TAB_COLUMNS
+     WHERE TABLE_NAME = UPPER(P_TABLE)
+     AND COLUMN_NAME = UPPER(P_COLUMN)
+     AND DATA_TYPE = 'CH';
+     --
+     RETURN V_RGTC;
+     --
+   END;
+   --
+BEGIN
+   --
+   IF P_COLUMN = '*' THEN
+    SELECT
+      'SELECT ' ||
+--      wm_concat(decode(g.data_type,'CH','GTC('''||O.TABLE_NAME||''','''||O.COLUMN_NAME||''','||O.COLUMN_NAME||') '||O.COLUMN_NAME,O.COLUMN_NAME) )
+		LISTAGG(decode(g.data_type,'CH','GTC('''||O.TABLE_NAME||''','''||O.COLUMN_NAME||''','||O.COLUMN_NAME||') '||O.COLUMN_NAME,O.COLUMN_NAME) ,',') WITHIN GROUP (ORDER BY POSITION)
+      || CHR(13) || 'FROM ' || p_table   X
+      into returnval
+      from (
+          select DATA_LENGTH, T.COLUMN_NAME, T.TABLE_NAME,NVL(J.POSITION,T.COLUMN_ID + 100) as POSITION
+          FROM USER_TAB_COLUMNS T,
+          	(SELECT COL.*
+          	FROM USER_CONSTRAINTS CNS, USER_CONS_COLUMNS COL
+          	WHERE CNS.CONSTRAINT_TYPE = 'P'
+          	AND COL.CONSTRAINT_NAME = CNS.CONSTRAINT_NAME
+          	AND COL.TABLE_NAME = CNS.TABLE_NAME) J
+          WHERE T.TABLE_NAME = UPPER(p_table)
+          AND J.TABLE_NAME(+) = T.TABLE_NAME
+          AND J.COLUMN_NAME(+) = T.COLUMN_NAME
+--          ORDER BY NVL(J.POSITION,T.COLUMN_ID + 100)
+         ) O, gui_tab_columns G
+      where g.table_name(+) = O.table_name
+      and g.column_name(+) = O.column_name;
+     return returnval;
+   ELSE
+    --
+    RGTC := GETGTC(P_TABLE,P_COLUMN);
+     --
+     RETURN GETBWTVAL(RGTC.BWT_TABLE, RGTC.BWT_INDEX, RGTC.BWT_DISPLAY, P_VALUE, ROUND((DBMS_UTILITY.GET_TIME) /90000)  );
+     --
+   END IF;
+--
+EXCEPTION
+   WHEN OTHERS THEN
+   RETURN P_VALUE;
+--
+END;

@@ -1,0 +1,1944 @@
+"REM WORKSPACETAB0",Query1,,12
+define institution_number = '00000111';
+
+SELECT REL.INSTITUTION_NUMBER, REL.CLIENT_NUMBER, REL.GROUP_NUMBER, SRC.TRADE_NAME AS SRC_CLIENT_NAME, SRC.CLIENT_TYPE SRC_CLIENT_TYPE,
+DEST_INSTITUTION_NUMBER, DEST_CLIENT_NUMBER, DEST.TRADE_NAME AS DEST_CLIENT_NAME, DEST.CLIENT_TYPE DEST_CLIENT_TYPE,
+LINK_TYPE, EFFECTIVE_DATE
+FROM CIS_CLIENT_RELATION_LINKS REL, CIS_CLIENT_DETAILS SRC, CIS_CLIENT_DETAILS DEST
+WHERE REL.INSTITUTION_NUMBER = SRC.INSTITUTION_NUMBER
+AND REL.CLIENT_NUMBER = SRC.CLIENT_NUMBER
+AND REL.DEST_INSTITUTION_NUMBER = DEST.INSTITUTION_NUMBER
+AND REL.DEST_CLIENT_NUMBER = DEST.CLIENT_NUMBER
+AND REL.INSTITUTION_NUMBER = &institution_number
+ORDER BY INSTITUTION_NUMBER, CLIENT_NUMBER
+"REM WORKSPACETAB1",Query3,,59
+define institution_number = '00000111';
+select bgri.report_name, cgo.*
+from CBR_GENERIC_OUTWARD cgo
+inner join BWT_GENERIC_REPORT bgri on bgri.index_field = cgo.generic_report_id and bgri.institution_number = cgo.institution_number and bgri.language = 'USA'
+where cgo.institution_number = &institution_number;
+
+
+select 'RECORD_DATE;MID;MERCHANT_NAME;MERCHANT_URL;MERCHANT_CLEARING_NAME;BRAND;MCC;CARD_NUMBER;ISSUER_COUNTRY;DR_CR_INDICATOR;AUTH_CODE;TRANSACTION_DATE;LOCAL_AMOUNT;TRANSACTION_AMOUNT;TRANSACTION_CURRENCY;ENTRY_MODE;ECI_SECURITY_LEVEL;TERMINAL_ID;MERCHANT_REF_NUMBER;ACQ_REF_NUMBER;'
+  from dual;
+  ////
+select main.record_date || ';' ||
+       main.merchant_number || ';' ||
+       main.merchant_name || ';' ||
+       iaad.merchant_url || ';' ||
+       ccd.trade_name || ';' ||
+       bcb.card_brand || ';' ||
+       main.business_class || ';' ||
+       substr(main.card_number,1,6) ||'XXXXXX'|| substr(main.card_number,13,4) || ';' ||
+       bc.client_country || ';' ||
+       case main.dr_cr_indicator when '001' then 'C' when '002' then 'D' else ' ' end || ';' ||
+       main.auth_code || ';' ||
+       main.transaction_date || ';' ||
+       REPLACE(REPLACE(REPLACE(main.local_amount_gr, '.','!'), ',','.'), '!',',') || ';' ||
+       REPLACE(REPLACE(REPLACE(main.tran_amount_gr, '.','!'), ',','.'), '!',',') || ';' ||
+       bcy.swift_code || ';' ||
+       bcm.capture_method || ';' ||
+       iaad.eesi || ';' ||
+       main.terminal_id || ';' ||
+       main.retrieval_reference || ';' ||
+       main.acquirer_reference
+  from int_transactions main
+  join int_addendum_additional_data iaad
+    on iaad.institution_number = main.institution_number
+   and iaad.transaction_slip = main.transaction_slip
+  join cis_client_details ccd
+    on ccd.institution_number = main.institution_number
+   and ccd.our_reference = main.merchant_number
+  join bwt_card_brand bcb
+    on bcb.institution_number = main.institution_number
+   and bcb.index_field = main.card_brand
+   and bcb.language = 'USA'
+  join bwt_country bc
+    on bc.institution_number = main.institution_number
+   and bc.index_field = iaad.bin_country
+   and bc.language = 'USA'
+  join bwt_currency bcy
+    on bcy.institution_number = main.institution_number
+   and bcy.iso_code = main.tran_currency
+   and bcy.language = 'USA'
+  join bwt_capture_method bcm
+    on bcm.institution_number = main.institution_number
+   and bcm.index_field = main.capture_method
+   and bcm.language = 'USA'
+ where main.transaction_class = '002'
+   and main.transaction_category = '001'
+   and main.institution_number = &institution_number
+   -- and main.record_date > '<<last_run_date>>'
+   -- and main.record_date <= '<<posting_date>>'
+ order by main.record_date asc, main.merchant_number asc
+"REM WORKSPACETAB2",hung_search_anything.sql,,240
+------ find value & columns in tables
+declare
+
+    v_owner varchar2(255) := 'BW3';
+    v_institution_number varchar2(12) := '00000111';
+
+    v_search_tables varchar2(40) := 'cis_%,int_*';
+	v_search_columns varchar2(40) := 'BANK_ACCOUNT_NUMBER';
+    v_search_string varchar2(4000) := '';
+
+    ---------
+
+   	v_columns_group integer := 10;
+    v_show_found_only boolean := true;
+    v_search_exact boolean := true;
+    v_show_sql boolean := true;
+    v_debug boolean := false;
+    v_data_type varchar2(255) := '%CHAR%';
+
+	---------
+	TYPE table_type IS table of varchar(50);
+  	v_tables table_type;
+    v_columns table_type;
+
+    v_sql_count clob := '';
+    v_sql clob := '';
+    v_sql_where clob := '';
+    v_sql_where_tables clob := '';
+    v_sql_where_columns clob := '';
+    v_sql_where_owner clob := '';
+    v_sql_where_institution clob := '';
+    v_sql_where_data_type clob := '';
+
+    v_sql_tables clob := '';
+    v_sql_columns clob := '';
+    v_str_columns clob := '';
+
+    v_match_count integer := 0;
+    v_counter integer := 0;
+    v_counter2 integer := 0;
+    v_counter_tables integer := 0;
+    v_counter_tables_found integer := 0;
+    v_counter_values_found integer := 0;
+    v_counter_columns_found integer := 0;
+
+    v_search varchar2(2) := '';
+    v_sql_final clob := '';
+    v_columns_count integer := 0;
+    v_table_name varchar2(50);
+    v_column_name varchar2(50);
+    v_i_table int;
+    v_i_column int;
+    v_i int;
+
+    cur_tables sys_refcursor;
+    cur_columns sys_refcursor;
+    rc sys_refcursor;
+begin
+
+     if not v_search_exact then
+		v_search := '%';
+	 else
+		v_search := '';
+	 end if;
+
+	 if v_search_tables is null then
+		v_search_tables := '%';
+	 end if;
+
+	 if v_search_columns is null then
+		v_search_columns := '%';
+     else
+     	v_columns_group := 1;
+	 end if;
+
+	 if v_institution_number is null then
+		v_institution_number := '%';
+	 end if;
+
+	 if v_owner is null then
+		v_owner := '%';
+	 end if;
+
+	 if v_data_type is null then
+		v_owner := '%';
+	 end if;
+
+	 v_search_tables := replace(v_search_tables, '*', '%');
+
+	 dbms_output.put_line('---------------');
+	 if LENGTH(v_search_string) > 0 then
+     	dbms_output.put_line('[' || TO_CHAR(SYSDATE,'DD-MM-YYYY HH24:MI') || '] db user: ' || v_owner || ', institution: ' || v_institution_number || '. Searching for keyword: "' || v_search_string || '"' || v_search || ' in table: [' || v_search_tables || '], column [' || v_search_columns || ']');
+  	 else
+  	 	dbms_output.put_line('[' || TO_CHAR(SYSDATE,'DD-MM-YYYY HH24:MI') || '] db user: ' || v_owner || ', institution: ' || v_institution_number || '. Searching column ' || v_search_columns || ' in table [' || v_search_tables || ']' );
+  	 end if;
+
+
+      --- query tables
+      v_i := 0;
+      for cur in (WITH DATA AS ( SELECT v_search_tables str FROM dual) SELECT trim(COLUMN_VALUE) str FROM DATA, xmltable(('"' || REPLACE(str, ',', '","') || '"'))) loop
+      	if v_i > 0 then
+      		v_sql_where_tables := v_sql_where_tables || ' OR ';
+      	end if;
+      	v_sql_where_tables := v_sql_where_tables || ' upper(table_name) LIKE upper(''' || cur.str || ''')';
+      	v_i := v_i + 1;
+      end loop;
+
+       --- query columns
+      v_i := 0;
+      for cur in (WITH DATA AS ( SELECT v_search_columns str FROM dual) SELECT trim(COLUMN_VALUE) str FROM DATA, xmltable(('"' || REPLACE(str, ',', '","') || '"'))) loop
+      	if v_i > 0 then
+      		v_sql_where_columns := v_sql_where_columns || ' OR ';
+      	end if;
+      	v_sql_where_columns := v_sql_where_columns || ' upper(column_name) LIKE upper(''' || cur.str || ''')';
+      	v_i := v_i + 1;
+      end loop;
+
+      v_sql_where_owner := 'upper(owner) like upper(''' || v_owner || ''')';
+      v_sql_where_data_type := 'upper(data_type) like upper(''' || v_data_type || ''')';
+      v_sql_where_institution := 'institution_number like ''' || v_institution_number || '''';
+
+
+      v_sql_tables := 'select table_name from all_tables where (' || v_sql_where_owner || ') and table_name in
+	                       (select table_name from all_tab_columns where owner = all_tables.owner and (' || v_sql_where_data_type || ') and (' || v_sql_where_tables || '))
+                       order by table_name';
+
+		if v_debug then
+         	dbms_output.put_line('--- SQL: ' || v_sql_tables || ';');
+  		end if;
+
+      -- dbms_output.put_line('     ' || v_sql_tables || ';');
+      OPEN cur_tables FOR v_sql_tables;
+      FETCH cur_tables BULK COLLECT INTO v_tables;
+      FOR v_i_table IN 1 .. v_tables.COUNT LOOP
+      v_table_name := v_tables(v_i_table);
+
+  	 -- loop all tables
+       	v_counter_tables := v_counter_tables + 1;
+
+       	-- reset temp vars before each loop
+        v_counter := 0; v_counter2 := 0; v_sql := ''; v_sql_count := ''; v_sql_where := ''; v_columns_count := 0; v_sql_columns := '';
+
+        execute immediate 'select count(*) from all_tab_columns where (' || v_sql_where_owner || ') and table_name = ''' || v_table_name || ''' and (' || v_sql_where_data_type || ') and (' || v_sql_where_columns || ')' into v_columns_count;
+
+        if v_columns_count > 0 then
+
+        	v_counter_tables_found := v_counter_tables_found + 1;
+
+			v_sql_columns := 'select column_name from all_tab_columns where (' || v_sql_where_owner || ') and table_name = ''' || v_table_name || ''' and (' || v_sql_where_data_type || ') and (' || v_sql_where_columns || ') order by column_id asc';
+			OPEN cur_columns FOR v_sql_columns;
+			FETCH cur_columns BULK COLLECT INTO v_columns;
+			FOR v_i_column IN 1 .. v_columns.COUNT LOOP
+			v_column_name := v_columns(v_i_column);
+	            if v_counter2 > 0 then
+	                v_sql_where := v_sql_where || ' OR ';
+	                v_str_columns := v_str_columns || ', ';
+	            end if;
+
+				v_sql_where := v_sql_where || 'UPPER(' || v_column_name || ') LIKE ''' || v_search || upper(v_search_string) || v_search || '''';
+				v_str_columns := v_str_columns || v_column_name;
+
+	            v_counter := v_counter + 1; v_counter2 := v_counter2 + 1;
+	            v_counter_columns_found := v_counter_columns_found + 1;
+
+		        if v_counter = v_columns_count or v_counter2 = v_columns_group then   -- table has column
+
+		            if LENGTH(v_search_string) > 0 then -- try to search for value
+		                v_sql := 'SELECT * FROM ' || v_table_name || ' WHERE (' || v_sql_where_institution || ') AND (' || v_sql_where || ')';
+				        v_sql_count := 'SELECT COUNT(*) FROM ' || v_table_name || ' WHERE (' || v_sql_where_institution || ') AND (' || v_sql_where || ')';
+				        if v_debug then
+			            	dbms_output.put_line('--- SQL: ' || v_sql || ';' || v_sql_count);
+                        end if;
+
+			            begin
+				        	execute immediate v_sql_count into v_match_count;
+					        if v_match_count > 0 then   -- value found in table and columns group.
+					        	if v_counter2 > 1 then   -- columns group has more than 1 column then keep looping to find exact column
+									for cur_columns1 in (WITH DATA AS ( SELECT v_str_columns str FROM dual) SELECT trim(COLUMN_VALUE) str FROM DATA, xmltable(('"' || REPLACE(str, ',', '","') || '"'))) loop
+										v_sql_where := 'UPPER(' || cur_columns1.str || ') LIKE ''' || v_search || upper(v_search_string) || v_search || '''';
+										v_sql_count := 'SELECT COUNT(*) FROM ' || v_table_name || ' WHERE (' || v_sql_where_institution || ') AND (' || v_sql_where || ')';
+										v_sql := 'SELECT * FROM ' || v_table_name || ' WHERE (' || v_sql_where_institution || ') AND (' || v_sql_where || ')';
+										execute immediate v_sql_count into v_match_count;
+						        		if v_match_count > 0 then
+						        			v_counter_values_found := v_counter_values_found + 1;
+						        			v_sql_final := v_sql;
+						        			dbms_output.put_line('');
+						        			 dbms_output.put_line('-- ' || v_table_name || ' [' || cur_columns1.str || ']: Found ' || v_match_count || ' records. ');
+								             if v_show_sql then
+								            	dbms_output.put_line('     ' || v_sql || ';');
+					                         end if;
+
+						        		end if;
+									end loop;
+                                else
+						        	v_counter_values_found := v_counter_values_found + 1;
+						        	v_sql_final := v_sql;
+						        	dbms_output.put_line('');
+						            dbms_output.put_line('-- ' || v_table_name || ' [' || v_str_columns || ']: Found ' || v_match_count || ' records. ');
+						            if v_show_sql then
+						            	dbms_output.put_line('     ' || v_sql || ';');
+			                        end if;
+			                    end if;
+					        else
+					        	if not v_show_found_only then
+					        		dbms_output.put_line('-- ' || v_table_name || '.' || v_column_name || ': No record found');
+					        	end if;
+					        end if;
+							exception
+				        		when others then
+				        			if not v_show_found_only then
+				            			dbms_output.put_line('---- ERROR: ' || v_table_name || '.' || v_column_name || ': ' || SQLCODE || SQLERRM || dbms_lob.substr(v_sql_count, 32600));
+				            		end if;
+					    end;
+					 else
+					 	dbms_output.put_line(v_table_name);
+			    	 end if;
+
+			    	  -- reset temp vars before each loop
+			    	 v_counter2 := 0; v_sql := ''; v_sql_count := ''; v_sql_where := '';  v_str_columns := '';
+			   	end if;
+			end loop;
+	    else
+	    	 if not v_show_found_only then
+	    	 	dbms_output.put_line('-- ' || v_table_name || ': No column');
+	    	 end if;
+	    end if;
+    end loop;
+
+    -- show result in result query
+	if v_sql_final is not null then
+		dbms_output.put_line('Final SQL: ' || v_sql_final);
+		-- open :rc for v_sql_final;
+	end if;
+	dbms_output.put_line('');
+    dbms_output.put_line('[' || TO_CHAR(SYSDATE,'DD-MM-YYYY HH24:MI') || '] Completed searching ' || v_counter_tables || ' tables and ' || v_counter_columns_found || ' columns. ' || v_counter_tables_found || ' tables has column "' || v_search_columns || '". ' || v_counter_values_found || ' tables has value "' || v_search_string || '". ');
+    dbms_output.put_line('---------------');
+    exception
+        when others then
+            dbms_output.put_line('---- ERROR: ' || SQLCODE || SQLERRM || dbms_lob.substr(v_sql, 32600));
+end;
+"REM WORKSPACETAB3",Query7,,1
+select * from CIS_DEVICE_LINK where institution_number = 111 and client_number = 180;
+"REM WORKSPACETAB4",Query5,,71
+select * from bwt_legal_form where institution_number = 2;
+
+define institution_number = 111;
+define client_number = '00000181';
+
+select
+sum(t.account_amount_gr * decode(t."DR_CR_INDICATOR", '001',1,-1)) as account_amout_gr,
+sum(t.account_amount_net * decode(t."DR_CR_INDICATOR", '001',1,-1)) as account_amout_net,
+sum(t.settlement_amount_gr * decode(t."DR_CR_INDICATOR", '001',1,-1)) as account_amout_gr,
+sum(t.settlement_amount_gr * decode(t."DR_CR_INDICATOR", '001',1,-1)) as settlement_amount_gr,
+sum(t.settlement_amount_net * decode(t."DR_CR_INDICATOR", '001',1,-1)) as settlement_amount_net,
+t.value_date
+from int_transactions t
+where t.institution_number = &institution_number and client_number = &client_number
+-- and record_date < '20200301'
+ and t.transaction_status in ('004') -- only display processed transaction 007 - Processed - 004 - Paid, 009 - Cleared;
+ and t.transaction_class in ('002') -- 002: Clearing transactions
+-- and t.transaction_category in ('008') -- 008: Payments
+ -- and t.DR_CR_INDICATOR in ('001') -- 001: credit, 002: debit
+AND ROWNUM < 1000
+group by t.value_date
+order by t.value_date asc;
+
+
+select t.DR_CR_INDICATOR, settlement_amount_net
+from int_transactions t where
+t.institution_number = &institution_number
+and client_number = &client_number
+-- and card_number is null
+-- and record_date < '20200301'
+and t.transaction_status in ('009') -- only display processed transaction 007 - Processed - 004 - Paid, 009 - Cleared;
+and t.transaction_class in ('002') -- 002: Clearing transactions
+-- and t.transaction_category in ('008') -- 008: Payments
+-- and t.DR_CR_INDICATOR in ('001') -- 001: credit, 002: debit
+AND ROWNUM < 1000
+-- group by t.settlement_date
+order by t.settlement_date asc;
+
+
+select distinct(settlement_currency), bc.iso_code, bc.name, bc.symbol from int_transactions t
+inner join bwt_currency bc on bc.iso_code = t.settlement_currency and bc.institution_number = t.institution_number and bc.language = 'USA'
+and t.institution_number = &institution_number
+and client_number = &client_number;
+
+select * from cht_transaction_status;
+
+select * from cht_transaction_class;
+
+select * from cht_transaction_category;
+
+select * from cht_transaction_source;
+
+select * from sys_user_information;
+
+select * from CHT_CLIENT_DEPARTMENT;
+
+select * from CHT_STATION_GROUP;
+
+select table_name from all_tables where (owner like 'BW3') and table_name in
+	                       (select table_name from all_tab_columns where owner = all_tables.owner and (upper(data_type) like '%CHAR%') and ( table_name LIKE upper('sys_%')))
+                       order by table_name;
+
+
+select * from cht_clearing_channel order by index_field;
+
+select * from cht_TRANSACTION_TYPE;
+
+select * from CHT_SIGN_OPERATORS;
+
+select * from CHT_VISA_DEBIT_INDICATOR
+
+"REM WORKSPACETAB5",Query6,,12
+define institution_number = 111;
+SELECT * FROM SYS_APPL_PROCESSING_LOCK where institution_number = &institution_number;
+select * from CIS_MANDATE_INFORMATION where institution_number = &institution_number;     --0000016000 999EUR001TP    0000016001   999EUR002TP
+
+
+select * from CIS_SETTLEMENT_INFORMATION  where institution_number = &institution_number and CLIENT_NUMBER in (999);
+
+select * from CIS_FUNDING_INFORMATION  where institution_number = &institution_number order by client_number;
+
+-- find posting date of institution
+select * from SYS_posting_date where institution_number = &institution_number;
+
+"REM WORKSPACETAB6",hung_transactions.sql,,644
+define institution_number = '00000111';
+define client_number = '00000181';
+define currency = '978';
+define start_date = '20220315';
+define end_date = '20220322';
+
+-- eur
+
+-- CAS_CLIENT_ACCOUNT [CLIENT_NUMBER]: Found 1 records.
+     SELECT * FROM CAS_CLIENT_ACCOUNT WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+-- CIS_ADDRESSES [CLIENT_NUMBER]: Found 1 records.
+     SELECT * FROM CIS_ADDRESSES WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+-- CIS_APPLICATION_DETAIL [CLIENT_NUMBER]: Found 2 records.
+     SELECT * FROM CIS_APPLICATION_DETAIL WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+-- CIS_CLIENT_DETAILS [CLIENT_NUMBER]: Found 1 records.
+     SELECT * FROM CIS_CLIENT_DETAILS WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+-- CIS_CLIENT_LINKS [CLIENT_NUMBER]: Found 1 records.
+     SELECT * FROM CIS_CLIENT_LINKS WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+-- CIS_DEVICE_LINK [CLIENT_NUMBER]: Found 1 records.
+     SELECT * FROM CIS_DEVICE_LINK WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+-- CIS_SETTLEMENT_INFORMATION [CLIENT_NUMBER]: Found 2 records.
+     SELECT * FROM CIS_SETTLEMENT_INFORMATION WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+-- INT_BATCH_CAPTURE [CLIENT_NUMBER]: Found 1 records.
+     SELECT  (bts.index_field || ' - ' || bts.transaction_status) as transaction_status,
+     tran_amount_gr, bc.*
+     FROM INT_BATCH_CAPTURE bc
+     inner join bwt_transaction_status bts on bts.index_field = bc.transaction_status and bts.institution_number = &institution_number and bts.language = 'USA'
+     WHERE (bc.institution_number like  &institution_number) AND (UPPER(bc.CLIENT_NUMBER) LIKE &client_number)
+     order by record_date;
+
+-- INT_TRANSACTIONS [CLIENT_NUMBER]: bts 2 records.
+
+--- Final ???
+SELECT
+	T.transaction_slip,
+	t.card_number as card_number,
+ 	T.transaction_date as transaction_date,
+  	(cdl.location || ' - ' || cdl.pos_region || ' - ' || cdl.pos_city) as location,
+   	(btc.index_field || ' - ' || btc.transaction_category) as transaction_category,
+    (btc1.index_field || ' - ' || btc1.transaction_class) as transaction_class,
+    (btt.index_field || ' - ' || btt.transaction_type) as transaction_type,
+    (bcb.index_field || ' - ' || bcb.card_brand) as card_brand,
+    (bco.index_field || ' - ' || bco.card_organization) as card_organization,
+    t.account_amount_gr * decode(t."TRANSACTION_TYPE", '005',1,-1) as gross_amount,
+    (bc.iso_code || ' - ' || bc.name) as transaction_currency,
+    t.account_amount_net * decode(t."TRANSACTION_TYPE", '005',1,-1) as net_amount,
+        t.account_amount_chg * decode(t."TRANSACTION_TYPE", '005',1,-1) as charge_amount,
+    (bc1.iso_code || ' - ' || bc1.name) as settlement_currency,
+    t.rate_fx_tran_settl as rate_fx,
+    (bts.index_field || ' - ' || bts.transaction_status) as transaction_status,
+    (bct.index_field || ' - ' || bct.charge_type) as charge_type,
+    (bcm.index_field || ' - ' || bcm.capture_method) as sale_channel,
+    t.retrieval_reference,
+    t.card_number,
+    t.acquirer_reference,
+    ccd.our_reference as merchant_id,
+    t.terminal_id,
+    T.summary_settlement as summary_number,
+    t.rate_fx_tran_settl as exchange_rate,
+	T.*
+FROM INT_TRANSACTIONS T
+	left join bwt_transaction_status bts on bts.index_field = T.transaction_status and bts.institution_number = t.institution_number and bts.language = 'USA'
+ 	left join bwt_transaction_category btc on btc.index_field = T.transaction_category and btc.institution_number = t.institution_number and btc.language = 'USA'
+  	left join bwt_transaction_class btc1 on btc1.index_field = T.transaction_class and btc1.institution_number = t.institution_number and btc1.language = 'USA'
+   	left join BWT_SIGN_OPERATORS bso on bso.index_field = T.dr_cr_indicator and bso.institution_number = t.institution_number and bso.language = 'USA'
+    left join BWT_TRANSACTION_TYPE btt on btt.index_field = T.transaction_type and btt.institution_number = t.institution_number and btt.language = 'USA'
+    left join BWT_CARD_BRAND bcb on bcb.index_field = T.card_brand and bcb.institution_number = t.institution_number and bcb.language = 'USA'
+    left join BWT_CARD_ORGANIZATION bco on bco.index_field = SUBSTR(t.AUTHORIZED_BY,0,3) and bco.institution_number = t.institution_number and bco.language = 'USA'
+    left join bwt_currency bc on bc.iso_code = t.tran_currency and bc.institution_number = t.institution_number and bc.language = 'USA'
+    left join bwt_currency bc1 on bc1.iso_code = t.settlement_currency and bc1.institution_number = t.institution_number and bc1.language = 'USA'
+    left join cis_device_link cdl on cdl.terminal_id = T.terminal_id and cdl.institution_number = t.institution_number
+    left join int_addendum_charges charge on charge.institution_number = t.institution_number AND charge.charge_transaction_slip = t.transaction_slip
+	left JOIN bwt_charge_type bct ON bct.index_field = charge.charge_type and bct.institution_number = charge.institution_number and bct.language = 'USA'
+	left JOIN bwt_capture_method bcm ON bcm.index_field = T.capture_method and bcm.institution_number = t.institution_number and bcm.language = 'USA'
+	left JOIN CIS_CLIENT_DETAILS ccd ON ccd.institution_number = t.institution_number and ccd.client_number = t.client_number
+	left join cas_client_account cca on cca.institution_number = t.institution_number and cca.client_number = t.client_number and cca.acct_number = t.acct_number and cca.acct_currency = t.acct_currency
+where T.transaction_slip in (
+	SELECT tran.transaction_slip
+		FROM INT_TRANSACTIONS tran,                     -- Individual slips, cardholder transactions (option 1: source summary)
+   			 INT_TRANSACTIONS summ                       -- Source summaries, grouped cardholder transactions by charge group posted to merchant accounts
+		WHERE summ.INSTITUTION_NUMBER = &institution_number
+		    AND summ.CLIENT_NUMBER = &client_number         -- To insert hierarchical
+		    AND summ.ACCT_CURRENCY = &currency
+		    AND summ.TRANSACTION_DATE between &start_date and &end_date
+		    AND tran.SOURCE_SETTLEMENT = summ.TRANSACTION_SLIP
+		    AND tran.INSTITUTION_NUMBER = summ.INSTITUTION_NUMBER
+		    AND tran.TRANSACTION_CLASS = '002'
+		    AND tran.TRANSACTION_CATEGORY = '001'
+		    AND tran.TRANSACTION_TYPE != '006'
+		    AND tran.REVERSAL_FLAG = '000'              -- Not reversed
+		    AND summ.TRANSACTION_CLASS = '012'
+		    AND summ.TRANSACTION_CATEGORY = '016'
+	union
+	SELECT fee.transaction_slip
+		FROM INT_TRANSACTIONS fee
+		WHERE fee.INSTITUTION_NUMBER = &institution_number
+			AND fee.CLIENT_NUMBER = &client_number
+			AND fee.ACCT_CURRENCY =  &currency
+			AND fee.TRANSACTION_DATE between &start_date AND &end_date
+			AND fee.REVERSAL_FLAG = '000'
+		 	-- AND fee.TRANSACTION_STATUS in ('004' ,'009','007')
+		 	AND fee.TRANSACTION_CLASS in ('002')
+		 	AND fee.TRANSACTION_CATEGORY in ('007')
+	)
+ORDER BY t.transaction_date, t.transaction_slip
+ 	;
+
+ select f.* from CBR_CLIENT_FEES f
+ where f.INSTITUTION_NUMBER = &institution_number;
+
+ 	-- Purchase
+ 	SELECT T.*
+		FROM INT_TRANSACTIONS T
+		inner join int_transactions t2 on t2.institution_number = t.institution_number and t2.summary_settlement = t.summary_settlement and t2.file_number = t.file_number and t2.transaction_class in ('012')
+		WHERE T.institution_number = &institution_number AND T2.CLIENT_NUMBER = &client_number and  T.ACCT_CURRENCY =  &currency and T.record_date between &start_date and &end_date
+       and T.transaction_status in ('004' ,'009','007') and  T.transaction_class in ('002') and T.transaction_category in ('007', '001', '016', '027', '003', '002') and t.transaction_type in ('005');
+
+	-- fees
+	SELECT T.*
+		FROM INT_TRANSACTIONS T
+		WHERE T.institution_number = &institution_number AND T.CLIENT_NUMBER = &client_number and  T.ACCT_CURRENCY =  &currency and T.record_date between &start_date and &end_date
+	 	and T.transaction_status in ('004' ,'009','007') and T.transaction_class in ('002') and T.transaction_category in ('007', '001', '016', '027', '003', '002');
+
+
+    --- settled transactions amount
+    SELECT tran.INSTITUTION_NUMBER, summ.CLIENT_NUMBER, summ.ACCT_CURRENCY, SUBSTR(tran.AUTHORIZED_BY,0,3) CARD_ORGANIZATION, SUM(tran.ACCOUNT_AMOUNT_GR) GROSS_AMOUNT, SUM(tran.ACCOUNT_AMOUNT_NET) NET_AMOUNT, SUM(tran.ACCOUNT_AMOUNT_CHG) CHARGE_AMOUNT, ROUND(AVG(tran.ACCOUNT_AMOUNT_GR), 2) AVERAGE_TICKET, COUNT(tran.TRANSACTION_SLIP) TRAN_COUNT
+FROM INT_TRANSACTIONS tran,                     -- Individual slips, cardholder transactions
+    INT_TRANSACTIONS summ                       -- Source summaries, grouped cardholder transactions by charge group posted to merchant accounts
+WHERE tran.INSTITUTION_NUMBER = summ.INSTITUTION_NUMBER
+    AND tran.SOURCE_SETTLEMENT = summ.TRANSACTION_SLIP
+    AND tran.TRANSACTION_CLASS = '002'
+    AND tran.TRANSACTION_CATEGORY = '001'
+    AND tran.TRANSACTION_TYPE != '006'
+    AND tran.REVERSAL_FLAG = '000'              -- Not reversed
+    AND summ.TRANSACTION_CLASS = '012'
+    AND summ.TRANSACTION_CATEGORY = '016'
+    AND summ.INSTITUTION_NUMBER = &institution_number
+    AND summ.CLIENT_NUMBER = &client_number         -- To insert hierarchical
+    AND tran.TRANSACTION_DATE between &start_date and &end_date      -- Transaction date to be filtered according to selected date
+GROUP BY tran.INSTITUTION_NUMBER, summ.CLIENT_NUMBER, summ.ACCT_CURRENCY, tran.AUTHORIZED_BY;
+
+	--- settled transactions amount
+    SELECT tran.INSTITUTION_NUMBER, summ.CLIENT_NUMBER, summ.ACCT_CURRENCY, SUBSTR(tran.AUTHORIZED_BY,0,3) CARD_ORGANIZATION, tran.card_number, tran.acct_number, tran.ACCOUNT_AMOUNT_GR GROSS_AMOUNT, tran.ACCOUNT_AMOUNT_NET NET_AMOUNT, tran.ACCOUNT_AMOUNT_CHG CHARGE_AMOUNT
+FROM INT_TRANSACTIONS tran,                     -- Individual slips, cardholder transactions
+    INT_TRANSACTIONS summ                       -- Source summaries, grouped cardholder transactions by charge group posted to merchant accounts
+WHERE tran.INSTITUTION_NUMBER = summ.INSTITUTION_NUMBER
+    AND tran.SOURCE_SETTLEMENT = summ.TRANSACTION_SLIP
+    AND tran.TRANSACTION_CLASS = '002'      -- clearing
+    AND tran.TRANSACTION_CATEGORY = '001'   -- presentment
+    AND tran.TRANSACTION_TYPE != '006'
+    AND tran.REVERSAL_FLAG = '000'              -- Not reversed
+    AND summ.TRANSACTION_CLASS = '012'          -- source summary control
+    AND summ.TRANSACTION_CATEGORY = '016'       -- source control information
+    AND summ.INSTITUTION_NUMBER = &institution_number
+    AND summ.CLIENT_NUMBER = &client_number         -- To insert hierarchical
+    AND tran.TRANSACTION_DATE between &start_date and &end_date      -- Transaction date to be filtered according to selected date
+
+order BY tran.INSTITUTION_NUMBER, summ.CLIENT_NUMBER, summ.ACCT_CURRENCY, tran.AUTHORIZED_BY;
+
+  -- transaction_status = 004 Paid, 009: Cleared, 007: Processed.
+  -- transaction_class 002: clearing, 012: source summary control.
+  -- transaction_category 001: Presentments, 002 - chargebacks, 003 - representments, 007 - charges & fees , 016: Source control information, 008: Payments, 027: authorization
+
+  ---  Option 2: all charges & fees
+select *
+from INT_ADDENDUM_CHARGES a
+where
+a.institution_number = &institution_number and a.client_number = &client_number and tran_currency = &currency
+ and a.record_date between &start_date and &end_date
+-- and charge_transaction_slip in ('21000060936')
+order by charge_transaction_slip;
+
+-------
+select * from int_transactions where transaction_slip in (21000061066,
+21000060874,
+21000060920
+
+);
+
+
+  -- by summary settlement
+  select
+  	-- t.record_date,
+  	t.file_number, t2.file_number as t2file,
+  	-- t.transaction_category, t2.transaction_category as t2category,
+  	-- t.transaction_class, t2.transaction_class as t2class,
+  	-- t.transaction_status, t2.transaction_status as t2status,
+   t.transaction_slip, t2.transaction_slip as t2slip,
+  	t.number_original_slip, t2.number_original_slip as t2original_slip,
+  	t.inward_fee_number, t.outward_fee_number, t.file_number_outward,
+  	-- t.bank_account_number, t2.bank_account_number,
+  	-- t.original_ref_number, t2.original_ref_number,
+  	t.tran_amount_out_chg, -- t2.tran_amount_out_chg,
+  	t.local_amount_inw_net, t.local_amount_inw_chg, t.local_amount_out_net, t.local_amount_out_chg,
+
+  	t.retrieval_reference,
+  	t2.acct_number,
+  	-- t.file_number,
+  	t.card_number,
+  	t.account_amount_gr * decode(t."DR_CR_INDICATOR", '001',-1,1) as gross_amount,
+  	t.settlement_amount_net * decode(t."DR_CR_INDICATOR", '001',-1,1) as settlement_amount
+  from int_transactions t -- class 02, clearing -> to get card number etc
+  inner join int_transactions t2 on t2.institution_number = t.institution_number and t2.summary_settlement = t.summary_settlement and t2.file_number = t.file_number and t2.transaction_class in ('012')   -- to get payment
+  where t.institution_number = &institution_number and t2.client_number = &client_number and T.ACCT_CURRENCY = &currency and T.record_date between &start_date and &end_date
+  and t.transaction_class in ('002')
+  and t.transaction_category in ('001', '002', '003', '016')
+  -- and t.transaction_slip in ('21000060866', '21000060876')
+
+  order by T.record_date, t.transaction_slip, t.transaction_category, t.transaction_class asc;
+
+  -----
+
+  select transaction_slip, summary_settlement, account_amount_gr, file_number
+  from INT_TRANSACTIONS t where
+  t.institution_number = &institution_number and t.ACCT_CURRENCY = &currency and t.record_date between &start_date and &end_date
+  and
+  -- t.transaction_category in ('007')
+  transaction_slip in ('21000000409');
+
+  -- option 2
+, SERVICE_CONTRACT_ID     select T.transaction_slip,
+     T.VALUE_DATE as transaction_date,
+     (cdl.location || ' - ' || cdl.pos_region || ' - ' || cdl.pos_city) as location,
+     (btc.index_field || ' - ' || btc.transaction_category) as transaction_category,
+      (btc1.index_field || ' - ' || btc1.transaction_class) as transaction_class,
+        (btt.index_field || ' - ' || btt.transaction_type) as transaction_type,
+        (bcb.index_field || ' - ' || bcb.card_brand) as card_brand,
+        t.account_amount_net * decode(t."DR_CR_INDICATOR", '001',1,-1) as gross_amount,
+        t.settlement_amount_net * decode(t."DR_CR_INDICATOR", '001',1,-1) as net_amount,
+        (bc.iso_code || ' - ' || bc.name) as transaction_currency,
+        (bc1.iso_code || ' - ' || bc1.name) as settlement_currency,
+        t.rate_fx_tran_settl as rate_fx,
+             (bts.index_field || ' - ' || bts.transaction_status) as transaction_status,
+             t.card_number, t.merchant_number, t.acquirer_reference, t.merchant_number as mid, T.summary_settlement as summary_number,
+     T.*
+     from INT_TRANSACTIONS T
+     left join bwt_transaction_status bts on bts.index_field = T.transaction_status and bts.institution_number = t.institution_number and bts.language = 'USA'
+     left join bwt_transaction_category btc on btc.index_field = T.transaction_category and btc.institution_number = t.institution_number and btc.language = 'USA'
+     left join bwt_transaction_class btc1 on btc1.index_field = T.transaction_class and btc1.institution_number = t.institution_number and btc1.language = 'USA'
+     left join BWT_SIGN_OPERATORS bso on bso.index_field = T.dr_cr_indicator and bso.institution_number = t.institution_number and bso.language = 'USA'
+     left join BWT_TRANSACTION_TYPE btt on btt.index_field = T.transaction_type and btt.institution_number = t.institution_number and btt.language = 'USA'
+     left join BWT_CARD_BRAND bcb on bcb.index_field = T.card_brand and bcb.institution_number = t.institution_number and bcb.language = 'USA'
+     inner join bwt_currency bc on bc.iso_code = t.tran_currency and bc.institution_number = t.institution_number and bc.language = 'USA'
+     inner join bwt_currency bc1 on bc1.iso_code = t.settlement_currency and bc1.institution_number = t.institution_number and bc1.language = 'USA'
+     left join cis_device_link cdl on cdl.terminal_id = T.terminal_id and cdl.institution_number = t.institution_number
+     where T.INSTITUTION_NUMBER = &institution_number AND (UPPER(T.CLIENT_NUMBER) = &client_number) and T.record_date between &start_date and &end_date and T.ACCT_CURRENCY =  &currency
+     and T.file_number in (select distinct file_number from INT_FILE_LOG_DETAILS
+     where INSTITUTION_NUMBER = &institution_number
+     and process_name = 13 -- 13: merchant payment
+     and record_date = T.record_date)
+and T.transaction_category = '008' -- 008: Payments
+and T.transaction_class = '012'
+and T.acct_number in (select DISTINCT acct_number from cas_client_account where INSTITUTION_NUMBER = &institution_number and client_number = &client_number
+and account_type_id = '012' -- 012: merchant payment account type
+and  T.ACCT_CURRENCY =  &currency)
+order by T.record_date asc, T.transaction_slip asc;
+
+------------
+      select * from int_transactions where INSTITUTION_NUMBER = &institution_number and client_number = &client_number and transaction_slip = '21100063166' or retrieval_reference = '21100063166' order by record_date asc;
+
+     --- Payment Summary
+select
+sum(t.account_amount_net * decode(t."DR_CR_INDICATOR", '001',1,-1)) as gross_amount,
+sum(t.settlement_amount_net * decode(t."DR_CR_INDICATOR", '001',1,-1)) as net_amount,
+t.value_date
+from int_transactions t
+where t.institution_number = &institution_number and client_number = &client_number and T.record_date between &start_date and &end_date  and T.ACCT_CURRENCY =  &currency
+ -- and t.transaction_status in ('004') -- only display processed transaction 007 - Processed - 004 - Paid, 009 - Cleared;
+ and t.transaction_class in ('002') -- 002: Clearing transactions
+ and t.transaction_category in ('008') -- 008: Payments
+ group by t.value_date
+order by t.value_date asc;
+
+    --- addendum charges
+	SELECT
+    fee.transaction_slip fee_transaction_slip,      -- Fee transaction slip
+    charge.transaction_slip,                        -- Presentment class 002 slip number for linking
+     (bct.index_field || ' - ' || bct.charge_type) as charge_type,                          -- Charge type, multiple charge types possible for transaction slip
+    charge.billing_acct_number,                     -- Merchant account where fee will be posted, same value as fee.acct_number
+    charge.client_number,                           -- Merchant client number
+    charge.acct_currency,                           -- Charge currency
+    (DECODE(fee.DR_CR_INDICATOR, '001', 1, -1) * charge.account_amount ) charge_account_amount,
+    fee.reversal_flag, charge.*
+FROM int_addendum_charges charge
+INNER JOIN int_transactions fee
+    ON charge.institution_number = fee.institution_number
+INNER JOIN bwt_charge_type bct
+	ON bct.index_field = charge.charge_type and bct.institution_number = charge.institution_number and bct.language = 'USA'
+    AND charge.charge_transaction_slip = fee.transaction_slip
+    AND fee.transaction_category = '007'
+    AND fee.transaction_class = '002'
+WHERE charge.institution_number = &institution_number and charge.client_number = &client_number and charge.acct_currency = &currency and charge.record_date between &start_date and &end_date;
+
+--- disputes transactions
+SELECT
+    tran.client_number,
+    tran.record_date,
+    tran.transaction_date,
+    tran.value_date,
+    tran.transaction_slip,
+    tran.acquirer_reference,
+    tran.retrieval_reference,
+    tran.number_original_slip,
+    tran.transaction_status,
+    tran.transaction_category,
+    tran.card_number,
+    tran.acct_currency,
+    tran.acct_number,
+    tran.retrieval_reference,
+    tran.tran_currency,
+    SUBSTR(tran.AUTHORIZED_BY,0,3) CARD_ORGANIZATION,
+    (DECODE(tran.dr_cr_indicator, '001', 1, -1) * tran.tran_amount_gr) tran_amount_gr,
+    (DECODE(tran.dr_cr_indicator, '001', 1, -1) * tran.account_amount_gr) acct_amount_gr,
+    tran.reversal_flag,
+    dms.case_number
+FROM int_transactions tran
+LEFT JOIN int_sundry_history dms                          -- DMS not always available?
+    ON tran.institution_number = dms.institution_number
+    AND tran.number_original_slip = dms.number_original_slip
+    AND tran.acquirer_reference = dms.acquirer_reference
+    AND dms.rule_action = '110'                                 -- Retrieve single case record
+WHERE tran.transaction_category IN ('002', '003')               -- Chargebacks + Re-presentments
+    AND tran.transaction_class = '002'                          -- Clearing transactions
+    AND tran.institution_number = &institution_number
+    AND tran.transaction_status <> '003'                      -- Not ERROR
+    AND tran.institution_number = &institution_number and tran.client_number = &client_number and tran.acct_currency = &currency and tran.record_date between &start_date and &end_date;
+
+    --- Adhoc Fees (account/ service/ manual / misc adhoc fees)
+    SELECT transaction_slip,
+    record_date,
+    transaction_date,
+    transaction_status,
+    client_number,
+    acct_number,
+    transaction_type,
+    group_number,
+    acct_currency,
+    account_amount_gr,
+    reversal_flag,
+    retrieval_reference,
+    transaction_source,
+    inward_fee_number
+FROM (
+    SELECT
+        tran.transaction_slip,
+        tran.record_date,
+        tran.transaction_date,
+        tran.transaction_status,
+        tran.client_number,
+        tran.acct_number,
+        tran.transaction_type,
+        tran.group_number,
+        tran.acct_currency,
+        (DECODE(tran.dr_cr_indicator, '001', 1, -1) * tran.account_amount_gr) account_amount_gr,
+        tran.reversal_flag,
+        tran.retrieval_reference,
+        tran.transaction_source,
+        tran.inward_fee_number,
+        COALESCE(SVC.RECORD_ID_NUMBER, CAS.RECORD_ID_NUMBER, DEV.RECORD_ID_NUMBER, CBR.RECORD_ID_NUMBER) RECORD_ID_NUMBER
+    FROM int_transactions tran
+    LEFT JOIN CBR_CLIENT_FEES CBR
+        ON tran.INSTITUTION_NUMBER = CBR.INSTITUTION_NUMBER
+        AND tran.INWARD_FEE_NUMBER = CBR.RECORD_ID_NUMBER
+    LEFT JOIN CAS_CLIENT_FEES CAS
+        ON tran.INSTITUTION_NUMBER = cas.INSTITUTION_NUMBER
+        AND tran.INWARD_FEE_NUMBER = cas.RECORD_ID_NUMBER
+    LEFT JOIN SVC_CLIENT_FEES SVC
+        ON tran.INSTITUTION_NUMBER = SVC.INSTITUTION_NUMBER
+        AND tran.INWARD_FEE_NUMBER = SVC.RECORD_ID_NUMBER
+    LEFT JOIN CIS_DEVICE_FEES DEV
+        ON tran.INSTITUTION_NUMBER = DEV.INSTITUTION_NUMBER
+        AND tran.INWARD_FEE_NUMBER = DEV.RECORD_ID_NUMBER
+    WHERE tran.transaction_category = '007'
+        AND tran.transaction_class = '002'
+        AND tran.institution_number = &institution_number and tran.client_number = &client_number and tran.record_date between &start_date and &end_date and tran.acct_currency = &currency
+)
+WHERE record_id_number = inward_fee_number  ;
+ UNION ALL
+ SELECT adhoc.transaction_slip,
+    adhoc.record_date,
+    adhoc.transaction_date,
+    adhoc.transaction_status,
+    adhoc.client_number,
+    adhoc.acct_number,
+    adhoc.transaction_type,
+    adhoc.group_number,
+    adhoc.acct_currency,
+    (DECODE(adhoc.dr_cr_indicator, '001', 1, -1) * adhoc.account_amount_gr) account_amount_gr,
+    adhoc.reversal_flag,
+    adhoc.retrieval_reference,
+    adhoc.transaction_source,
+    adhoc.inward_fee_number
+FROM INT_TRANSACTIONS adhoc
+WHERE adhoc.TRANSACTION_CATEGORY = '007'
+    AND adhoc.TRANSACTION_CLASS = '002'
+     AND adhoc.TRANSACTION_SOURCE = '006';
+    AND adhoc.INSTITUTION_NUMBER = &institution_number and adhoc.client_number = &client_number and adhoc.record_date between &start_date and &end_date and adhoc.acct_currency = &currency;
+
+	--- adjust transactions having null original transaction slip, created either by a process or manually for correction of merchant's balance.
+	SELECT adj.client_number,
+    adj.acct_number,
+    adj.transaction_slip,
+    adj.number_original_slip,
+    adj.transaction_category,
+    adj.transaction_class,
+    adj.transaction_type,
+    adj.transaction_source,
+    adj.acct_currency,
+    (DECODE(adj.dr_cr_indicator, '001', 1, -1) * adj.account_amount_gr) account_amount_gr,
+    adj.reversal_flag
+FROM int_transactions adj
+WHERE
+    adj.transaction_category = '050'    -- Adjustments
+    AND adj.transaction_class = '002'       -- Class 002
+    AND adj.transaction_source = '006'       -- Source 006
+    AND adj.institution_number = &institution_number and adj.client_number = &client_number and adj.record_date between &start_date and &end_date and adj.acct_currency = &currency
+order by record_date asc, transaction_slip;
+
+	-- GL transactions history
+   SELECT  (bts.index_field || ' - ' || bts.transaction_status) as transaction_status,
+     (btc.index_field || ' - ' || btc.transaction_category) as transaction_category,
+      (btc1.index_field || ' - ' || btc1.transaction_class) as transaction_class,
+        (btt.index_field || ' - ' || btt.transaction_type) as transaction_type,
+           (bso.index_field || bso.sign) as BWT_SIGN_OPERATORS,
+     T.* FROM INT_GL_TRANSACTIONS T
+     left join bwt_transaction_status bts on bts.index_field = T.transaction_status and bts.institution_number = t.institution_number and bts.language = 'USA'
+     left join bwt_transaction_category btc on btc.index_field = T.transaction_category and btc.institution_number = t.institution_number and btc.language = 'USA'
+     left join bwt_transaction_class btc1 on btc1.index_field = T.transaction_class and btc1.institution_number = t.institution_number and btc1.language = 'USA'
+      left join BWT_SIGN_OPERATORS bso on bso.index_field = T.dr_cr_indicator and bso.institution_number = t.institution_number and bso.language = 'USA'
+       left join BWT_TRANSACTION_TYPE btt on btt.index_field = T.transaction_type and btt.institution_number = t.institution_number and btt.language = 'USA'
+     WHERE (T.institution_number = &institution_number ) AND (UPPER(T.CLIENT_NUMBER) = &client_number )
+     -- and (T.file_number in (2587) or T.transaction_slip in (21000000425))
+     -- and (T.acct_number in (00000181001))
+     order by record_date asc;
+
+
+
+-- deposits
+select * from CAS_PAYMENT_STATUS_HISTORY where (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) in (&client_number));
+
+-- cis address
+select * from CIS_Address where (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) in (&client_number));
+
+-- Final SQL: SELECT * FROM SVC_CLIENT_SERVICE WHERE (institution_number like  &institution_number) AND (UPPER(CLIENT_NUMBER) LIKE &client_number);
+
+select * from bwt_transaction_status where index_field in ('005', '202');
+
+-- get bw bank accounts and its balance !!
+select
+&client_number as client_number, cbb.acct_number, (bc.iso_code || ' - ' || bc.name) as acct_currency,
+(ps.index_field || ' - ' || ps.processing_status) as processing_status, cbb.begin_balance, cbb.current_balance,
+cbb.* from CAS_CYCLE_BOOK_BALANCE cbb
+    inner join bwt_currency bc on bc.iso_code = cbb.acct_currency and bc.institution_number = cbb.institution_number and bc.language = 'USA'
+     inner join bwt_processing_status ps on ps.index_field = cbb.processing_status and ps.institution_number = cbb.institution_number and ps.language = 'USA'
+where (cbb.institution_number = &institution_number ) AND (UPPER(cbb.ACCT_NUMBER) LIKE (&client_number || '%'))
+and cbb.processing_status in ('004') -- 004: current, 015: closed
+order by cbb.acct_number, cbb.date_cycle_start asc;
+
+select * from CAS_PAYMENT_STATUS_HISTORY where institution_number like &institution_number;
+
+select * from CIS_DEVICE_LINK where institution_number like &institution_number;
+
+select * from cht_transaction_category where index_field in ('001', '002', '003', '007', '008', '027', '016');
+select * from cht_transaction_status where language = 'USA' and institution_number = &institution_number order by index_field;
+select * from BWT_CHARGE_TYPE where language = 'USA' and institution_number = &institution_number order by index_field;
+
+select transaction_slip, count(*) from int_transactions where institution_number like &institution_number group by transaction_slip;
+
+select * from CAS_PAYMENT_STATUS_HISTORY where institution_number like &institution_number and client_number = &client_number and record_date between &start_date and &end_date and acct_currency = &currency order by record_date asc;
+
+select * from CBR_SERVICE_CONTRACT where institution_number like &institution_number;
+
+select * from cht_services where institution_number like &institution_number;
+select * from CBR_SERVICE_DEFINITION where institution_number like &institution_number;
+
+select distinct(file_number) from INT_FILE_LOG_DETAILS where institution_number like &institution_number and process_name in (86,455);
+
+select * from INT_SUNDRY_TRANSACTIONS where institution_number like &institution_number;
+
+select count(*) from int_transactions where transaction_slip is null;
+
+-- check account
+select account_amount_net *decode( dr_cr_indicator, '001',1,-1), a.acct_number, a.last_settlement_date , t.value_date
+from int_transactions t , cas_client_account a
+where t.institution_number = &institution_number --enter institution number of merchant/client
+and t.transaction_status ='002'
+and t.client_number = &client_number --enter client number you are checking
+and a.institution_number = t.institution_number
+and a.acct_number = t.acct_number
+and t.value_date > a.last_settlement_date
+order by t.value_date;
+
+---
+
+SELECT  DISTINCT
+        CHT.CONDITION_SET,
+        CHT.INDEX_FIELD,
+        (SELECT TARGET_CLASS FROM BW3.BWT_FEE_CATEGORY WHERE INSTITUTION_NUMBER = &institution_number AND INDEX_FIELD = CBR.FEE_CATEGORY) AS FEE_CATEGORY,
+        (SELECT SWIFT_CODE FROM BW3.BWT_CURRENCY WHERE INSTITUTION_NUMBER = &institution_number AND ISO_CODE = CBR.FEE_CURRENCY) AS FEE_CURRENCY,
+        LISTAGG((SELECT SERVICE_ID FROM BW3.BWT_SERVICES WHERE INSTITUTION_NUMBER = &institution_number AND INDEX_FIELD = CBR.SERVICE_ID), ',') WITHIN GROUP (ORDER BY CBR.SERVICE_ID) AS SERVICE_ID,
+        (SELECT AREA_OF_ACTION FROM BW3.BWT_AREA_OF_ACTION WHERE INSTITUTION_NUMBER = &institution_number AND INDEX_FIELD = CBR.AREA_OF_EVENT) AS AREA_OF_EVENT,
+        (SELECT TRANSACTION_TYPE FROM BW3.BWT_TRANSACTION_TYPE WHERE INSTITUTION_NUMBER = &institution_number AND INDEX_FIELD = CBR.TRANSACTION_TYPE) AS TRANSACTION_TYPE,
+        (SELECT CAPTURE_METHOD FROM BW3.BWT_CAPTURE_METHOD WHERE INSTITUTION_NUMBER = &institution_number AND INDEX_FIELD = CBR.CAPTURE_METHOD) AS CAPTURE_METHOD,
+        (SELECT SERVICE_TYPE FROM BW3.BWT_SERVICE_TYPE WHERE INSTITUTION_NUMBER = &institution_number AND INDEX_FIELD = CBR.SERVICE_TYPE) AS SERVICE_TYPE,
+        (SELECT STATEMENT_NARRATIVE FROM BW3.BWT_TRANSACTION_TYPE WHERE INSTITUTION_NUMBER = &institution_number AND INDEX_FIELD = CBR.PL_IND_INWARD) AS PL_IND_INWARD
+FROM    BW3.CBR_TRANSACTION_CHARGES CBR,
+        BW3.CHT_ACCOUNT_CONDITION_SET CHT
+WHERE   CBR.INSTITUTION_NUMBER = &institution_number
+AND     CBR.INSTITUTION_NUMBER = CHT.INSTITUTION_NUMBER
+AND     CBR.CLIENT_TARIFF = CHT.INDEX_FIELD
+AND     CBR.SERVICE_CONTRACT_ID = '112'
+-- AND     CHT.INDEX_FIELD = '011377'
+GROUP BY CHT.INDEX_FIELD, CHT.CONDITION_SET,CBR.FEE_CURRENCY, CBR.SERVICE_ID, CBR.CAPTURE_METHOD, CBR.CHARGE_TYPE, CBR.SERVICE_TYPE, CBR.AREA_OF_EVENT, CBR.TRANSACTION_TYPE, CBR.PL_IND_INWARD, CBR.FEE_CATEGORY
+ORDER BY 1,2,3,6,5,7;
+
+----
+select object_name, count(*)
+from BW_AMC.AMC_USER_SYSTEM_ACTIONS
+group by object_name order by count(*) desc;
+
+----
+select * from bwt_processing_status where institution_number = &institution_number;
+
+select * from bwt_acct_status where institution_number = &institution_number;
+
+select * from bwt_clearing_channel where institution_number = &institution_number and language = 'USA' order by index_field;
+
+select * from bwt_sales_channel where institution_number = &institution_number and language = 'USA';
+
+select * from bwt_account_type_id where institution_number = &institution_number and language = 'USA';
+
+select * from cbr_channel_definition where institution_number = &institution_number and client_number = &client_number;     -- 037, 934, 018, 153
+
+select * from cis_application_acct_type where institution_number = &institution_number and acct_currency = &currency;
+
+select * from CIS_SETTLEMENT_INFORMATION where institution_number = &institution_number and client_number = &client_number and acct_currency = &currency;
+
+select * from CIS_MANDATE_INFORMATION where institution_number = &institution_number;
+
+select * from int_transactions where retrieval_reference in ('0000015702') and institution_number = &institution_number and client_number = &client_number and acct_currency = &currency;
+
+select distinct(bank_account_number) from int_transactions where institution_number = &institution_number and client_number = &client_number;
+
+select * from INT_SUNDRY_TRANSACTIONS where institution_number = &institution_number and client_number = &client_number;
+
+
+SELECT TRANSACTION_SLIP, x.* FROM INT_TRANSACTIONS x WHERE x.INSTITUTION_NUMBER = &institution_number and x.client_number = &client_number
+and x.TRANSACTION_CLASS in (2, 11)
+and x.TRANSACTION_CATEGORY in (2, 24)
+and x.ACQUIRER_REFERENCE is not null
+and (SELECT count(1) FROM INT_TRANSACTIONS t WHERE t.TRANSACTION_SLIP = SUBSTR(x.ACQUIRER_REFERENCE,12,11)
+AND t.INSTITUTION_NUMBER||'' = &institution_number
+AND t.TRANSACTION_CLASS||'' = '002' AND t.TRANSACTION_CATEGORY||'' = '001')  > 0;
+
+select *
+from cbr_transaction_charges a
+where a.institution_number = &institution_number
+and a.client_number = &client_number or a.client_number = 0; --if the lookup is by client number than the tariff should be 000
+--and a.client_tariff = '510' --to be used in case there is NO setup by client number
+-- and a.service_contract_id = '497'
+-- and a.service_id = '101'
+-- and a.transaction_type ='007' --supports the value of 999
+-- and a.tran_currency = &currency  --supports the value of 999
+-- and a.capture_method = '100' --supports the value of 999
+-- and a.area_of_event ='002' --supports the value of 999
+-- and a.service_type = '001' --supports the value of 999
+-- and a.charge_Type = '002'; --commission
+;
+
+SELECT  IT.TRANSACTION_SLIP, IT.RECORD_DATE
+FROM    INT_TRANSACTIONS IT,
+        SVC_CLIENT_CARDS SCC
+WHERE   IT.INSTITUTION_NUMBER = &institution_number AND
+        IT.TRANSACTION_STATUS = '002' AND
+        IT.TRANSACTION_CATEGORY = '001' AND
+        SCC.INSTITUTION_NUMBER = IT.INSTITUTION_NUMBER AND
+        SCC.CARD_NUMBER = IT.CARD_NUMBER AND
+        SCC.SERVICE_CONTRACT_ID IN (
+            SELECT  SERVICE_CONTRACT_ID
+            FROM    CBR_CONTRACT_ACCT_TYPES
+            WHERE   ACCOUNT_TYPE_ID = '021' AND
+                    INSTITUTION_NUMBER = SCC.INSTITUTION_NUMBER
+        ) AND
+        IT.RECORD_DATE BETWEEN (
+            SELECT  CCBB.DATE_CYCLE_START   /*MAX(CCBB.DATE_CYCLE_START) /* Config: EPPValidCycles is true */*/
+            FROM    CAS_CYCLE_BOOK_BALANCE CCBB
+            WHERE   CCBB.INSTITUTION_NUMBER = IT.INSTITUTION_NUMBER AND
+                    CCBB.ACCT_NUMBER = IT.ACCT_NUMBER AND
+                    CCBB.PROCESSING_STATUS = BWTPad('BWT_PROCESSING_STATUS', '004') /* Config: EPPValidCycles is empty or false */
+                    /*CCBB.PROCESSING_STATUS = BWTPad('BWT_PROCESSING_STATUS', '015') /* Config: EPPValidCycles is true */*/
+        ) AND (
+            SELECT  DATE_CYCLE_END
+            FROM    CAS_CYCLE_BOOK_BALANCE CCBB
+            WHERE   CCBB.INSTITUTION_NUMBER = IT.INSTITUTION_NUMBER AND
+                    CCBB.ACCT_NUMBER = IT.ACCT_NUMBER AND
+                    CCBB.PROCESSING_STATUS = BWTPad('BWT_PROCESSING_STATUS', '004')
+        ) AND
+        IT.TRANSACTION_SLIP NOT IN (
+            SELECT  IST.TRANSACTION_SLIP
+            FROM    BW3.INT_SUNDRY_TRANSACTIONS IST
+            WHERE   IST.INSTITUTION_NUMBER = IT.INSTITUTION_NUMBER AND
+                    IST.TRANSACTION_SLIP = IT.TRANSACTION_SLIP
+        ); /* AND
+        IT.TRANSACTION_SLIP NOT IN (
+            SELECT  IST.TRANSACTION_SLIP
+            FROM    BW_AMC.INT_SUNDRY_TRANSACTIONS IST
+            WHERE   IST.INSTITUTION_NUMBER = IT.INSTITUTION_NUMBER AND
+                    IST.TRANSACTION_SLIP = IT.TRANSACTION_SLIP
+        ) */ ;
+
+
+SELECT GROUP_NUMBER,
+       CCL.CLIENT_NUMBER,
+       SERVICE_CONTRACT_ID,
+       COMPANY_NAME,
+       CLIENT_TARIFF,
+       EFFECTIVE_DATE,
+       CLIENT_LEVEL,
+       CCL.CLIENT_BRANCH
+FROM CIS_CLIENT_LINKS CCL,
+     CIS_CLIENT_DETAILS CCD
+WHERE CCL.INSTITUTION_NUMBER = &institution_number
+AND CCL.CLIENT_NUMBER = &client_number
+AND CONTRACT_STATUS = '001'
+AND CCL.CLIENT_LEVEL = '001'
+AND EFFECTIVE_DATE = (SELECT MAX(EFFECTIVE_DATE)
+                      FROM CIS_CLIENT_LINKS
+                      WHERE INSTITUTION_NUMBER = CCL.INSTITUTION_NUMBER
+                      AND CLIENT_NUMBER = CCL.CLIENT_NUMBER
+                      AND SERVICE_CONTRACT_ID = CCL.SERVICE_CONTRACT_ID
+                      AND CLIENT_LEVEL = CCL.CLIENT_LEVEL
+                      AND GROUP_NUMBER = CCL.GROUP_NUMBER
+                      AND EFFECTIVE_DATE <= &end_date)
+AND CCD.INSTITUTION_NUMBER = CCL.INSTITUTION_NUMBER
+AND CCD.CLIENT_NUMBER = CCL.CLIENT_NUMBER
+ORDER BY GROUP_NUMBER, CLIENT_LEVEL DESC;
+
+"REM WORKSPACETAB7",Query18,,0
+"REM WORKSPACETAB8",nga_transactions.sql,,99
+select * from INT_TRANSACTIONS    where file_number in (2595,2596) and  institution_number = '00000111' order by file_number, transaction_class;
+
+select * from int_file_log_details where file_number = '00002661' and  institution_number = '00000111' order by 1;
+-- 4149089999050823
+--5115800300000001
+
+
+select t4.merchant_file_number, t4.TRAN_AMOUNT_MERCHANT_FILE,t4.TRAN_AMOUNT_FEE_FILE, t4.fees_file_number, t.card_number, t.* from (
+
+ select distinct t1.institution_number, t1.file_number as merchant_file_number , t2.file_number as fees_file_number,  t1.TRAN_AMOUNT_GR as TRAN_AMOUNT_MERCHANT_FILE, t2.TRAN_AMOUNT_GR as TRAN_AMOUNT_FEE_FILE from INT_TRANSACTIONS t1, INT_TRANSACTIONS  t2
+ where    t1.institution_number = t2.institution_number
+ and t1.institution_number = '00000111'
+ and  t1.transaction_class = '012'
+ and  t1.transaction_source = '137'
+ and t1.transaction_destination = '018'
+ and t1.retrieval_reference = t2.retrieval_reference
+ and  t2.transaction_class = '002'
+ and  t2.transaction_source = '031'
+ and t2.transaction_destination = '018'
+ and t1.value_date = '20220322'
+ ) t4 ,   INT_TRANSACTIONS t
+ where t4.institution_number = t.institution_number
+ and  t.institution_number = '00000111'
+ and t.file_number = t4.merchant_file_number
+and t.transaction_class = '002'
+and t.transaction_source = '137'
+and t.transaction_category = '001'
+ and t.value_date = '20220322'
+
+order by 1;
+
+select * from INT_TRANSACTIONS where file_number = '00001201' and   institution_number = '00000111' order by 1;
+select * from INT_TRANSACTIONS where  file_number = '00001198' and   institution_number = '00000111' order by 1;
+select * from INT_TRANSACTIONS where  file_number = '00001199' and   institution_number = '00000111' order by 1;
+
+
+ select distinct t1.retrieval_reference, t1.tran_amount_gr, t2.tran_amount_gr, t1.institution_number, t1.file_number as merchant_file_number , t2.file_number as fees_file_number from INT_TRANSACTIONS t1, INT_TRANSACTIONS  t2
+ where
+ t1.institution_number = t2.institution_number
+ and t1.institution_number = '00000111'
+ and t1.client_number = 181
+ and  t1.transaction_class = '012'
+ and  t1.transaction_source = '137'
+ and t1.transaction_destination = '018'
+ and t1.retrieval_reference = t2.retrieval_reference
+ and t2.retrieval_reference is not null
+  and  t2.transaction_class = '002'
+ and  t2.transaction_source = '031'
+ and t2.transaction_destination = '018'
+ and t1.value_date = '20220322'
+ ;
+
+
+
+
+select distinct t1.value_date, t1.file_number as merchant_file_number , t2.file_number as fees_file_number,  t1.TRAN_AMOUNT_GR as TRAN_AMOUNT_MERCHANT_FILE, t2.TRAN_AMOUNT_GR as TRAN_AMOUNT_FEE_FILE from INT_TRANSACTIONS t1, INT_TRANSACTIONS  t2
+ where    t1.institution_number = t2.institution_number
+ and t1.institution_number = '00000111'
+ and  t1.transaction_class = '012'
+ and  t1.transaction_source in ('137', '005')
+ and t1.transaction_destination = '018'
+
+ and t1.retrieval_reference = t2.retrieval_reference
+ and t1.client_number = 181
+ and t1.client_number = t2.client_number
+ and t1.file_number < t2.file_number
+
+ and t1.retrieval_reference is not null
+ and  t2.transaction_class = '002'
+ and  t2.transaction_source = '031'
+ and t2.transaction_destination = '018'
+ and t1.transaction_status in ('004', '007', '009')
+ and t1.value_date = '20220322'
+ --and t1.acct_number = t2.acct_number
+ order by t1.value_date, merchant_file_number;
+
+
+select * from int_file_log_details where file_number = '00002586' and  institution_number = '00000111' order by 1  desc ;
+select * from int_file_log_details where file_number = '00002585' and  institution_number = '00000111' order by 1  desc ;
+select * from int_transactions where file_number = '00002585' and transaction_status in ('004', '007', '009') and institution_number = '00000111' and transaction_class = 002 and transaction_category = 001 order by 1  desc ;
+select * from int_transactions where file_number in ('00002586', '00002588', '00002596') and  institution_number = '00000111' and transaction_class = 002 and transaction_category = 007 order by 1  desc ;
+
+select * from cht_transaction_status order by index_field;
+
+--0000012139
+/*
+21000061024
+21000061027
+
+21000061017
+21000061021
+
+
+207508038179
+207515529192
+
+
+
+
+"REM WORKSPACETAB9","how to link merchant payment and merchant transaction load.sql",,92
+define institution_number = '00000111';
+define client_number = '00000181';
+define currency = '978';
+define start_date = '20220315';
+define end_date = '20220322';
+
+select * from bwt_transaction_class where language = 'USA' and institution_number = &institution_number order by 1;
+
+--1)find merchant payment file_number per date
+select file_number, transaction_category, transaction_class, tran_amount_gr from int_transactions where
+INSTITUTION_NUMBER  = &institution_number and record_date = '20220322' and transaction_category in ('008') and transaction_class in ('002');
+
+--00002661
+select transaction_slip from int_transactions where file_number = '00002661' and INSTITUTION_NUMBER  = &institution_number
+and transaction_class = '002'
+ order by transaction_class; ---21100063166  326.24
+
+--2) find merchant transactions   which has been funded from above merchant payment file
+select summary_settlement, file_number from  int_transactions t1
+where t1.retrieval_reference =
+(select transaction_slip from int_transactions where file_number = '00002661' and INSTITUTION_NUMBER  = &institution_number
+and transaction_class = '002')
+and INSTITUTION_NUMBER  = &institution_number
+and client_number = &client_number
+and transaction_class = '012';
+ order by 1;  -- file_number      -- 330  10    200      120
+   ---03 files
+	-- 00002585
+	--00002587
+	--00002595
+
+	--- accordingly with the Files for Fees generated with Merchant transaction file  00002586 00002588    00002596
+
+select transaction_slip, card_number, retrieval_reference from int_transactions where file_number = '00002585'  and   INSTITUTION_NUMBER  = '00000111'  and transaction_class = '002'
+ and summary_settlement = '21000060867'
+  order by transaction_class;
+
+--check 1 merchant transaction  file 00002585
+select acct_currency, institution_number, client_number, transaction_slip, card_number, retrieval_reference, tran_amount_gr, transaction_class, transaction_type, transaction_category, transaction_status, record_date
+from int_transactions where
+file_number = '00002585' and INSTITUTION_NUMBER  = '00000111' and transaction_class = '002'
+ and summary_settlement = '21000060867'
+  order by transaction_class;
+
+-- who the hell is 90000001
+select * from cis_client_details where client_number = '90000001' and institution_number = '00000111';
+
+------
+select
+-- institution_number, client_number, acct_currency,
+transaction_slip, card_number, retrieval_reference, tran_amount_gr, transaction_class, transaction_type, transaction_category, transaction_status, record_date
+from int_transactions
+where
+-- file_number = '00002585' and summary_settlement = '21000060867'
+INSTITUTION_NUMBER  = '00000111' and transaction_class = '002' and client_number = '90000001' and record_date between &start_date and &end_date and acct_currency = &currency
+order by transaction_class;
+-------
+
+select t1.client_number, t2.card_number
+from int_transactions t1
+inner join int_transactions t2;
+
+
+
+  --- 02 transactions  for this file
+--  5123150000000004
+--5101412000090005
+
+--3) ------find card organization based on transaction_destination in merchant transactions file
+select card_organization from CBR_CHANNEL_DEFINITION where TRANSACTION_DESTINATION     = '154' and INSTITUTION_NUMBER  = &institution_number order by 1; ---002
+
+---4) find card_brand
+select card_brand from SYS_MAST_INTER_BIN_TABLE where START_BIN_VALUE  like '512315%' order by 1;  --card_brand = '010'
+
+
+--5) find service_id
+select * from CBR_SERVICE_DEFINITION where INSTITUTION_NUMBER    = '00000111'
+and card_organization = '002'
+and card_brand = '010'
+and service_category = '002' --acquiring
+  ;
+
+-- 6) find service name
+select * from bwt_services where index_field = 102 and language = 'USA' and institution_number = &institution_number;
+
+
+select summary_settlement, file_number from  int_transactions t1
+where t1.retrieval_reference =  (select transaction_slip from int_transactions where file_number = '00002661' and INSTITUTION_NUMBER  = &institution_number
+and transaction_class = '002')
+and INSTITUTION_NUMBER  = &institution_number and client_number = &client_number
+and transaction_class = '012';
+
+"REM WORKSPACETAB10",Query11,,26
+select * from INT_FILE_LOG_DETAILS where INSTITUTION_NUMBER = '00000111' and process_name = 13
+and record_date = '20220322' order by 1;
+
+select  * from int_transactions where  INSTITUTION_NUMBER = '00000111' and file_number in (
+select distinct file_number from INT_FILE_LOG_DETAILS where INSTITUTION_NUMBER = '00000111' and process_name = 13
+and record_date = '20220322')
+and transaction_category = '008'
+and transaction_class = '012'
+and acct_number in (select DISTINCT acct_number from cas_client_account
+where INSTITUTION_NUMBER = '00000111' and client_number = '00000181'
+and account_type_id = '012' -- 012: merchant payment account type
+and  ACCT_CURRENCY   =  '978')
+AND TRANSACTION_TYPE in ('250', '270', '256')
+order by record_date asc;
+
+select * from
+
+select * from bwt_transaction_type where institution, CBR_SERVICE_DEFINITION_number = '00000111' and language = 'USA' order by index_field asc;
+
+select * from bwt_account_type_id where institution_number = '00000111' and language = 'USA' order by index_field asc;
+
+---merchant fee account_type_id = 007     270
+
+
+--00002661
+--00002666
+"REM WORKSPACETAB11",Query9,,6
+    SELECT * FROM SVC_CLIENT_SERVICE WHERE (institution_number like '00000111') AND (UPPER(CLIENT_NUMBER) in ('00000180', '00000999'))
+     -- and service_id in (102,109,202,301)
+     order by client_number, service_id asc;
+
+
+select * from cas_
+"REM WORKSPACETAB12",Query10,,74
+define institution_number = 111;
+
+-- INT_BATCH_CAPTURE [FILE_NUMBER]: Found 6 records.
+     SELECT * FROM INT_BATCH_CAPTURE WHERE (institution_number like '00000111') AND (UPPER(FILE_NUMBER) LIKE '00002585');
+
+-- INT_FILE_LOG_DETAILS [FILE_NUMBER]: Found 1 records.
+     SELECT * FROM INT_FILE_LOG_DETAILS WHERE (institution_number like '00000111') AND (UPPER(FILE_NUMBER) LIKE '00002585');
+
+-- INT_FILE_LOG_STATUS [FILE_NUMBER]: Found 1 records.
+     SELECT * FROM INT_FILE_LOG_STATUS WHERE (institution_number like '00000111') AND (UPPER(FILE_NUMBER) LIKE '00002585');
+
+-- INT_GL_TRANSACTIONS [FILE_NUMBER]: Found 19 records.
+     SELECT * FROM INT_GL_TRANSACTIONS WHERE (institution_number like '00000111') AND (UPPER(FILE_NUMBER) LIKE '00002585');
+
+-- INT_PROCESS_FILE_LOG [FILE_NUMBER]: Found 1 records.
+     SELECT * FROM INT_PROCESS_FILE_LOG WHERE (institution_number like '00000111') AND (UPPER(FILE_NUMBER) LIKE '00002585');
+
+-- INT_PROCESS_MESSAGE_LOG [FILE_NUMBER]: Found 24 records.
+     SELECT * FROM INT_PROCESS_MESSAGE_LOG WHERE (institution_number like '00000111') AND (UPPER(FILE_NUMBER) LIKE '00002585');
+
+     SELECT * FROM INT_TRANSACTIONS WHERE (institution_number like '00000111')
+     AND MERCHANT_NUMBER IN ('000000000000181')
+     AND RECORD_DATE IN ('20220318');
+     --AND (UPPER(CARD_NUMBER) IN ('5101412000090005',	'5123150000000004'));
+
+      SELECT * FROM CIS_CLIENT_DETAILS WHERE (institution_number like '00000111') AND (UPPER(CLIENT_NUMBER) LIKE '90000001');
+
+-- check posting date
+      select distinct current_cycle_start, current_cycle_end
+from cbr_contract_acct_types
+order by current_cycle_start, current_cycle_end;
+
+-- fee identifier
+select 	distinct chg.record_id_number,
+		aoe.area_of_action,
+		cap.capture_method,
+		servid.service_id,
+		fee_percent,
+		fee_base,
+		fee_minimum,
+		Fee_maximum,
+		fee_identifier,
+		brnd.card_brand,
+		tran.transaction_type
+from	cbr_transaction_charges chg,
+		cht_capture_method cap,
+		cht_area_of_action aoe,
+		cht_fee_identifier fee,
+		cbr_service_definition serv,
+		cht_services servid,
+		cht_card_brand brnd,
+		cht_transaction_type tran
+where	chg.institution_number = &institution_number
+and		chg.capture_method = cap.index_field
+and     chg.area_of_event = aoe.index_field
+and     chg.fee_id = fee.index_field
+and		chg.service_id = serv.service_id
+and		chg.service_id = servid.index_field
+and		serv.service_id = servid.index_field
+and 	serv.card_brand	= brnd.index_field
+and		chg.transaction_type = tran.index_field;
+
+
+
+-- INT_TRANSACTIONS [FILE_NUMBER]: Found 12 records.
+     SELECT * FROM INT_TRANSACTIONS WHERE (institution_number like '00000111') AND (UPPER(FILE_NUMBER) LIKE '00002585');
+
+     select * from cht_transaction_status;
+
+     select * from cht_transaction_class;
+
+      select * from cht_transaction_category where institution_number = 0;
+
+     select * from int_transactions where file_number = 2587 and institution_number = '00000111' and transaction_class = '012' order by transaction_class;  ---  transaction_slip = 21000060936
+"REM WORKSPACETAB13",posting_instructions_grouping.sql,,35
+SELECT  DISTINCT CHT.INDEX_FIELD,
+        CHT.POSTING_METHOD,
+        (SELECT SWIFT_CODE FROM BW3.BWT_CURRENCY WHERE INSTITUTION_NUMBER = &1 AND ISO_CODE = CBR.ACCT_CURRENCY) AS ACCT_CURRENCY,
+        LISTAGG((SELECT TRANSACTION_TYPE FROM CHT_TRANSACTION_TYPE WHERE INSTITUTION_NUMBER = &1 AND INDEX_FIELD = CBR.TRANSACTION_TYPE), ',') WITHIN GROUP (ORDER BY CBR.ACCT_CURRENCY, CBR.TRANSACTION_CATEGORY, CBR.TRANSACTION_CLASS, CBR.TRAN_CURRENCY, CBR.ACCOUNT_TYPE_ID) AS TRANSACTION_TYPE,
+        (SELECT TYPE_ID FROM BW3.CHT_ACCOUNT_TYPE_ID WHERE INSTITUTION_NUMBER = &1 AND INDEX_FIELD = CBR.ACCOUNT_TYPE_ID) AS ACCOUNT_TYPE_ID,
+        (SELECT TRANSACTION_CATEGORY FROM BW3.BWT_TRANSACTION_CATEGORY WHERE INSTITUTION_NUMBER = &1 AND INDEX_FIELD = CBR.TRANSACTION_CATEGORY) AS TRANSACTION_CATEGORY,
+        (SELECT TRANSACTION_CLASS FROM BW3.BWT_TRANSACTION_CLASS WHERE INSTITUTION_NUMBER = &1 AND INDEX_FIELD = CBR.TRANSACTION_CLASS) AS TRANSACTION_CLASS,
+        (CASE WHEN CBR.TRAN_CURRENCY = '999' THEN 'ALL' ELSE (SELECT SWIFT_CODE FROM BW3.BWT_CURRENCY WHERE INSTITUTION_NUMBER = &1 AND ISO_CODE = CBR.TRAN_CURRENCY) END) AS TRANSACTION_CURRENCY
+FROM    CBR_POSTING_INSTRUCTIONS CBR,
+        CHT_POSTING_TARIFF CHT
+WHERE   CBR.INSTITUTION_NUMBER = &1
+AND     CBR.INSTITUTION_NUMBER = CHT.INSTITUTION_NUMBER
+AND     CBR.POSTING_METHOD = CHT.INDEX_FIELD
+AND     CBR.SERVICE_CONTRACT_ID = '112'
+GROUP BY CHT.INDEX_FIELD, CHT.POSTING_METHOD,CBR.TRANSACTION_CATEGORY, CBR.TRANSACTION_CLASS,CBR.ACCOUNT_TYPE_ID,CBR.TRAN_CURRENCY, CBR.ACCT_CURRENCY
+ORDER BY 1,2,3,6,5,7;
+
+select acct_number  from INT_TRANSACTIONS  where file_number = '00002506' and INSTITUTION_NUMBER  = '00000111'
+and transaction_class = '012'
+and  client_number = '00000181'
+ order by transaction_class;
+
+select service_contract_id from cas_client_account where INSTITUTION_NUMBER = '00000111' and acct_number = '00000181001';
+
+select * from int_transactions where transaction_slip in (
+select retrieval_reference from INT_TRANSACTIONS    where
+file_number = 2587  --- pos nt loader
+and INSTITUTION_NUMBER    = '00000111'
+and transaction_class = '012')
+and file_number = '00002661'
+and    INSTITUTION_NUMBER    = '00000111'
+and transaction_class = '002'
+and client_number = '00000181'
+;
+
+"REM WORKSPACETAB14",Query14,,376
+select
+  "alias_13854467"."INSTITUTION_NUMBER",
+  "alias_13854467"."VALUE_DATE",
+  "alias_13854467"."ACCT_NUMBER",
+  "alias_13854467"."RECORD_DATE",
+  "alias_13854467"."REVERSAL_FLAG",
+  "alias_13854467"."ACCT_CURRENCY",
+  "alias_13854467"."TRANSACTION_SLIP",
+  "alias_13854467"."TRANSACTION_TYPE",
+  "alias_13854467"."INWARD_FEE_NUMBER",
+  "alias_13854467"."TRANSACTION_STATUS",
+  "alias_13854467"."ACCT_AMOUNT_GR",
+  "alias_13854467"."ACCT_AMOUNT_NET",
+  "alias_13854467"."RETRIEVAL_REFERENCE",
+  "alias_13854467"."ACCOUNT_TYPE_ID"
+from (
+  (
+    select
+      "alias_26868279"."INSTITUTION_NUMBER",
+      "alias_26868279"."VALUE_DATE",
+      "alias_26868279"."ACCT_NUMBER",
+      "alias_26868279"."RECORD_DATE",
+      "alias_26868279"."REVERSAL_FLAG",
+      "alias_26868279"."ACCT_CURRENCY",
+      "alias_26868279"."TRANSACTION_SLIP",
+      "alias_26868279"."TRANSACTION_TYPE",
+      "alias_26868279"."INWARD_FEE_NUMBER",
+      "alias_26868279"."TRANSACTION_STATUS",
+      "alias_26868279"."ACCT_AMOUNT_GR",
+      "alias_26868279"."ACCT_AMOUNT_NET",
+      "alias_26868279"."RETRIEVAL_REFERENCE",
+      "alias_26868279"."ACCOUNT_TYPE_ID"
+    from (
+      select
+        "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER",
+        "BW3"."INT_TRANSACTIONS"."VALUE_DATE",
+        "BW3"."INT_TRANSACTIONS"."ACCT_NUMBER",
+        "BW3"."INT_TRANSACTIONS"."RECORD_DATE",
+        "BW3"."INT_TRANSACTIONS"."REVERSAL_FLAG",
+        "BW3"."INT_TRANSACTIONS"."ACCT_CURRENCY",
+        "BW3"."INT_TRANSACTIONS"."TRANSACTION_SLIP",
+        "BW3"."INT_TRANSACTIONS"."TRANSACTION_TYPE",
+        "BW3"."INT_TRANSACTIONS"."INWARD_FEE_NUMBER",
+        "BW3"."INT_TRANSACTIONS"."TRANSACTION_STATUS",
+        "BW3"."INT_TRANSACTIONS"."RETRIEVAL_REFERENCE",
+        cast(("BW3"."INT_TRANSACTIONS"."TRAN_AMOUNT_GR" * decode(
+          "BW3"."INT_TRANSACTIONS"."DR_CR_INDICATOR",
+          '001',
+          1,
+          -1
+        )) as varchar2(4000)) "ACCT_AMOUNT_GR",
+        cast(("BW3"."INT_TRANSACTIONS"."TRAN_AMOUNT_NET" * decode(
+          "BW3"."INT_TRANSACTIONS"."DR_CR_INDICATOR",
+          '001',
+          1,
+          -1
+        )) as varchar2(4000)) "ACCT_AMOUNT_NET",
+        coalesce(
+          "svc"."RECORD_ID_NUMBER",
+          "cas"."RECORD_ID_NUMBER",
+          "dev"."RECORD_ID_NUMBER",
+          "cbr"."RECORD_ID_NUMBER",
+          "cbr"."INSTITUTION_NUMBER",
+          "cas"."INSTITUTION_NUMBER",
+          "svc"."INSTITUTION_NUMBER",
+          "dev"."INSTITUTION_NUMBER"
+        ) "RECORD_ID_NUMBER",
+        "acc"."ACCOUNT_TYPE_ID"
+      from "BW3"."INT_TRANSACTIONS"
+        left outer join "BW3"."CBR_CLIENT_FEES" "cbr"
+          on (
+            "cbr"."INSTITUTION_NUMBER" = "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER"
+            and "cbr"."RECORD_ID_NUMBER" = "BW3"."INT_TRANSACTIONS"."INWARD_FEE_NUMBER"
+          )
+        left outer join "BW3"."CAS_CLIENT_FEES" "cas"
+          on (
+            "cas"."INSTITUTION_NUMBER" = "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER"
+            and "cas"."RECORD_ID_NUMBER" = "BW3"."INT_TRANSACTIONS"."INWARD_FEE_NUMBER"
+          )
+        left outer join "BW3"."SVC_CLIENT_FEES" "svc"
+          on (
+            "svc"."INSTITUTION_NUMBER" = "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER"
+            and "svc"."RECORD_ID_NUMBER" = "BW3"."INT_TRANSACTIONS"."INWARD_FEE_NUMBER"
+          )
+        left outer join "BW3"."CIS_DEVICE_FEES" "dev"
+          on (
+            "dev"."INSTITUTION_NUMBER" = "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER"
+            and "dev"."RECORD_ID_NUMBER" = "BW3"."INT_TRANSACTIONS"."INWARD_FEE_NUMBER"
+          )
+        left outer join "BW3"."CAS_CLIENT_ACCOUNT" "acc"
+          on (
+            "acc"."INSTITUTION_NUMBER" = "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER"
+            and "acc"."ACCT_NUMBER" = "BW3"."INT_TRANSACTIONS"."ACCT_NUMBER"
+          )
+      where (
+        "BW3"."INT_TRANSACTIONS"."TRANSACTION_CATEGORY" = "BW3"."BWTPAD"(
+          'BWT_TRANSACTION_CATEGORY',
+          '007'
+        )
+        and "BW3"."INT_TRANSACTIONS"."TRANSACTION_CLASS" = "BW3"."BWTPAD"(
+          'BWT_TRANSACTION_CLASS',
+          '002'
+        )
+        and "BW3"."INT_TRANSACTIONS"."CLIENT_NUMBER" in (
+          select "alias_97747060"."CLIENT_NUMBER"
+          from (
+            select
+              "lnk"."TITLE",
+              "lnk"."SHORT_NAME",
+              "lnk"."LEGAL_FORM",
+              "lnk"."GROUP_NUMBER",
+              "lnk"."CLIENT_LEVEL",
+              "lnk"."RECORD_TYPE",
+              "lnk"."RECORD_DATE",
+              "lnk"."AUDIT_TRAIL",
+              "lnk"."CONTACT_NAME",
+              "lnk"."CLIENT_STATUS",
+              "lnk"."CLIENT_BRANCH",
+              "lnk"."BUSINESS_CLASS",
+              "lnk"."VAT_REG_NUMBER",
+              "lnk"."CLIENT_LANGUAGE",
+              "lnk"."CLIENT_NUMBER_RBS",
+              "lnk"."WEBSITE_ADDRESS",
+              "lnk"."ECOMMERCE_INDICATOR",
+              "lnk"."CLIENT_REGION",
+              "lnk"."PARENT_CLIENT_NUMBER",
+              "lnk"."CLIENT_NUMBER",
+              "lnk"."INSTITUTION_NUMBER",
+              "lnk"."TEL_PRIVATE",
+              "lnk"."TEL_WORK",
+              "lnk"."REGISTRATION_NUMBER",
+              "lnk"."COMPANY_NAME",
+              "lnk"."TRADE_NAME",
+              "lnk"."OUR_REFERENCE",
+              "lnk"."MOBILE_NO_1",
+              "lnk"."MOBILE_NO_2",
+              "lnk"."CLIENT_TYPE",
+              "lnk"."SERVICE_CONTRACT_ID"
+            from (
+              select
+                "cdet"."TITLE",
+                "cdet"."SHORT_NAME",
+                "cdet"."LEGAL_FORM",
+                "lnk"."GROUP_NUMBER",
+                "lnk"."CLIENT_LEVEL",
+                "cdet"."RECORD_TYPE",
+                "cdet"."RECORD_DATE",
+                "cdet"."AUDIT_TRAIL",
+                "cdet"."CONTACT_NAME",
+                "cdet"."CLIENT_STATUS",
+                "cdet"."CLIENT_BRANCH",
+                "cdet"."BUSINESS_CLASS",
+                "cdet"."VAT_REG_NUMBER",
+                "cdet"."CLIENT_LANGUAGE",
+                "cdet"."CLIENT_NUMBER_RBS",
+                "cdet"."WEBSITE_ADDRESS",
+                "cdet"."ECOMMERCE_INDICATOR",
+                "cdet"."CLIENT_REGION",
+                "lnk"."PARENT_CLIENT_NUMBER",
+                "cdet"."CLIENT_NUMBER",
+                "cdet"."INSTITUTION_NUMBER",
+                "cdet"."TEL_PRIVATE",
+                "cdet"."TEL_WORK",
+                "cdet"."REGISTRATION_NUMBER",
+                "cdet"."COMPANY_NAME",
+                "cdet"."TRADE_NAME",
+                "cdet"."OUR_REFERENCE",
+                "cdet"."MOBILE_NO_1",
+                "cdet"."MOBILE_NO_2",
+                "cdet"."CLIENT_TYPE",
+                "lnk"."SERVICE_CONTRACT_ID",
+                '' "CLIENT_CHOOSER_FILTER"
+              from
+                "BW3"."CIS_CLIENT_DETAILS" "cdet",
+                "BW3"."CIS_CLIENT_LINKS" "lnk"
+              where (
+                "cdet"."INSTITUTION_NUMBER" = '00000200'
+                and "lnk"."INSTITUTION_NUMBER" = "cdet"."INSTITUTION_NUMBER"
+                and "lnk"."CLIENT_NUMBER" = "cdet"."CLIENT_NUMBER"
+                and "lnk"."CONTRACT_STATUS" in (
+                  '001', '002', '003'
+                )
+                and "lnk"."EFFECTIVE_DATE" = (
+                  select max("sublnk"."EFFECTIVE_DATE")
+                  from "BW3"."CIS_CLIENT_LINKS" "sublnk"
+                  where (
+                    "sublnk"."CLIENT_NUMBER" = "lnk"."CLIENT_NUMBER"
+                    and "sublnk"."GROUP_NUMBER" = "lnk"."GROUP_NUMBER"
+                    and "sublnk"."SERVICE_CONTRACT_ID" = "lnk"."SERVICE_CONTRACT_ID"
+                    and "sublnk"."INSTITUTION_NUMBER" = "lnk"."INSTITUTION_NUMBER"
+                    and "sublnk"."CLIENT_LEVEL" = "lnk"."CLIENT_LEVEL"
+                    and "sublnk"."EFFECTIVE_DATE" <= '20220211'
+                  )
+                )
+              )
+            ) "lnk"
+            start with (
+              "lnk"."CLIENT_NUMBER" = '80000244'
+              and "lnk"."INSTITUTION_NUMBER" = '00000200'
+            )
+            connect by (
+              prior "lnk"."CLIENT_NUMBER" = "lnk"."PARENT_CLIENT_NUMBER"
+              and prior "lnk"."GROUP_NUMBER" = "lnk"."GROUP_NUMBER"
+              and prior "lnk"."INSTITUTION_NUMBER" = "lnk"."INSTITUTION_NUMBER"
+              and prior "lnk"."CLIENT_LEVEL" <> '001'
+              and prior "lnk"."CLIENT_NUMBER" <> "lnk"."INSTITUTION_NUMBER"
+            )
+          ) "alias_97747060"
+        )
+        and "acc"."ACCOUNT_TYPE_ID" <> "BW3"."BWTPAD"(
+          'BWT_ACCOUNT_TYPE_ID',
+          '140'
+        )
+      )
+    ) "alias_26868279"
+    where cast("alias_26868279"."RECORD_ID_NUMBER" as varchar2(4000)) = cast("alias_26868279"."INWARD_FEE_NUMBER" as varchar2(4000))
+  )
+  union all (
+    select
+      "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER",
+      "BW3"."INT_TRANSACTIONS"."VALUE_DATE",
+      "BW3"."INT_TRANSACTIONS"."ACCT_NUMBER",
+      "BW3"."INT_TRANSACTIONS"."RECORD_DATE",
+      "BW3"."INT_TRANSACTIONS"."REVERSAL_FLAG",
+      "BW3"."INT_TRANSACTIONS"."ACCT_CURRENCY",
+      "BW3"."INT_TRANSACTIONS"."TRANSACTION_SLIP",
+      "BW3"."INT_TRANSACTIONS"."TRANSACTION_TYPE",
+      "BW3"."INT_TRANSACTIONS"."INWARD_FEE_NUMBER",
+      "BW3"."INT_TRANSACTIONS"."TRANSACTION_STATUS",
+      cast(("BW3"."INT_TRANSACTIONS"."TRAN_AMOUNT_GR" * decode(
+        "BW3"."INT_TRANSACTIONS"."DR_CR_INDICATOR",
+        '001',
+        1,
+        -1
+      )) as varchar2(4000)) "ACCT_AMOUNT_GR",
+      cast(("BW3"."INT_TRANSACTIONS"."TRAN_AMOUNT_NET" * decode(
+        "BW3"."INT_TRANSACTIONS"."DR_CR_INDICATOR",
+        '001',
+        1,
+        -1
+      )) as varchar2(4000)) "ACCT_AMOUNT_NET",
+      "BW3"."INT_TRANSACTIONS"."RETRIEVAL_REFERENCE",
+      "acc"."ACCOUNT_TYPE_ID"
+    from "BW3"."INT_TRANSACTIONS"
+      left outer join "BW3"."CAS_CLIENT_ACCOUNT" "acc"
+        on (
+          "acc"."INSTITUTION_NUMBER" = "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER"
+          and "acc"."ACCT_NUMBER" = "BW3"."INT_TRANSACTIONS"."ACCT_NUMBER"
+        )
+    where (
+      "BW3"."INT_TRANSACTIONS"."INSTITUTION_NUMBER" = '00000200'
+      and "BW3"."INT_TRANSACTIONS"."TRANSACTION_CATEGORY" = "BW3"."BWTPAD"(
+        'BWT_TRANSACTION_CATEGORY',
+        '007'
+      )
+      and "BW3"."INT_TRANSACTIONS"."TRANSACTION_CLASS" = "BW3"."BWTPAD"(
+        'BWT_TRANSACTION_CLASS',
+        '002'
+      )
+      and "BW3"."INT_TRANSACTIONS"."TRANSACTION_SOURCE" = "BW3"."BWTPAD"(
+        'BWT_CLEARING_CHANNEL',
+        '006'
+      )
+      and "BW3"."INT_TRANSACTIONS"."CLIENT_NUMBER" in (
+        select "alias_97747060"."CLIENT_NUMBER"
+        from (
+          select
+            "lnk"."TITLE",
+            "lnk"."SHORT_NAME",
+            "lnk"."LEGAL_FORM",
+            "lnk"."GROUP_NUMBER",
+            "lnk"."CLIENT_LEVEL",
+            "lnk"."RECORD_TYPE",
+            "lnk"."RECORD_DATE",
+            "lnk"."AUDIT_TRAIL",
+            "lnk"."CONTACT_NAME",
+            "lnk"."CLIENT_STATUS",
+            "lnk"."CLIENT_BRANCH",
+            "lnk"."BUSINESS_CLASS",
+            "lnk"."VAT_REG_NUMBER",
+            "lnk"."CLIENT_LANGUAGE",
+            "lnk"."CLIENT_NUMBER_RBS",
+            "lnk"."WEBSITE_ADDRESS",
+            "lnk"."ECOMMERCE_INDICATOR",
+            "lnk"."CLIENT_REGION",
+            "lnk"."PARENT_CLIENT_NUMBER",
+            "lnk"."CLIENT_NUMBER",
+            "lnk"."INSTITUTION_NUMBER",
+            "lnk"."TEL_PRIVATE",
+            "lnk"."TEL_WORK",
+            "lnk"."REGISTRATION_NUMBER",
+            "lnk"."COMPANY_NAME",
+            "lnk"."TRADE_NAME",
+            "lnk"."OUR_REFERENCE",
+            "lnk"."MOBILE_NO_1",
+            "lnk"."MOBILE_NO_2",
+            "lnk"."CLIENT_TYPE",
+            "lnk"."SERVICE_CONTRACT_ID"
+          from (
+            select
+              "cdet"."TITLE",
+              "cdet"."SHORT_NAME",
+              "cdet"."LEGAL_FORM",
+              "lnk"."GROUP_NUMBER",
+              "lnk"."CLIENT_LEVEL",
+              "cdet"."RECORD_TYPE",
+              "cdet"."RECORD_DATE",
+              "cdet"."AUDIT_TRAIL",
+              "cdet"."CONTACT_NAME",
+              "cdet"."CLIENT_STATUS",
+              "cdet"."CLIENT_BRANCH",
+              "cdet"."BUSINESS_CLASS",
+              "cdet"."VAT_REG_NUMBER",
+              "cdet"."CLIENT_LANGUAGE",
+              "cdet"."CLIENT_NUMBER_RBS",
+              "cdet"."WEBSITE_ADDRESS",
+              "cdet"."ECOMMERCE_INDICATOR",
+              "cdet"."CLIENT_REGION",
+              "lnk"."PARENT_CLIENT_NUMBER",
+              "cdet"."CLIENT_NUMBER",
+              "cdet"."INSTITUTION_NUMBER",
+              "cdet"."TEL_PRIVATE",
+              "cdet"."TEL_WORK",
+              "cdet"."REGISTRATION_NUMBER",
+              "cdet"."COMPANY_NAME",
+              "cdet"."TRADE_NAME",
+              "cdet"."OUR_REFERENCE",
+              "cdet"."MOBILE_NO_1",
+              "cdet"."MOBILE_NO_2",
+              "cdet"."CLIENT_TYPE",
+              "lnk"."SERVICE_CONTRACT_ID",
+              '' "CLIENT_CHOOSER_FILTER"
+            from
+              "BW3"."CIS_CLIENT_DETAILS" "cdet",
+              "BW3"."CIS_CLIENT_LINKS" "lnk"
+            where (
+              "cdet"."INSTITUTION_NUMBER" = '00000200'
+              and "lnk"."INSTITUTION_NUMBER" = "cdet"."INSTITUTION_NUMBER"
+              and "lnk"."CLIENT_NUMBER" = "cdet"."CLIENT_NUMBER"
+              and "lnk"."CONTRACT_STATUS" in (
+                '001', '002', '003'
+              )
+              and "lnk"."EFFECTIVE_DATE" = (
+                select max("sublnk"."EFFECTIVE_DATE")
+                from "BW3"."CIS_CLIENT_LINKS" "sublnk"
+                where (
+                  "sublnk"."CLIENT_NUMBER" = "lnk"."CLIENT_NUMBER"
+                  and "sublnk"."GROUP_NUMBER" = "lnk"."GROUP_NUMBER"
+                  and "sublnk"."SERVICE_CONTRACT_ID" = "lnk"."SERVICE_CONTRACT_ID"
+                  and "sublnk"."INSTITUTION_NUMBER" = "lnk"."INSTITUTION_NUMBER"
+                  and "sublnk"."CLIENT_LEVEL" = "lnk"."CLIENT_LEVEL"
+                  and "sublnk"."EFFECTIVE_DATE" <= '20220211'
+                )
+              )
+            )
+          ) "lnk"
+          start with (
+            "lnk"."CLIENT_NUMBER" = '80000244'
+            and "lnk"."INSTITUTION_NUMBER" = '00000200'
+          )
+          connect by (
+            prior "lnk"."CLIENT_NUMBER" = "lnk"."PARENT_CLIENT_NUMBER"
+            and prior "lnk"."GROUP_NUMBER" = "lnk"."GROUP_NUMBER"
+            and prior "lnk"."INSTITUTION_NUMBER" = "lnk"."INSTITUTION_NUMBER"
+            and prior "lnk"."CLIENT_LEVEL" <> '001'
+            and prior "lnk"."CLIENT_NUMBER" <> "lnk"."INSTITUTION_NUMBER"
+          )
+        ) "alias_97747060"
+      )
+      and "acc"."ACCOUNT_TYPE_ID" <> "BW3"."BWTPAD"(
+        'BWT_ACCOUNT_TYPE_ID',
+        '140'
+      )
+    )
+  )
+) "alias_13854467"
+"REM WORKSPACETAB15",Query15,,101
+define institution_number = '00000111';
+define client_number = '00000181';
+define currency = '978';
+define start_date = '20220315';
+define end_date = '20220322';
+
+select distinct a.file_number, a.transaction_slip, a.account_address, a.transaction_class, a.transaction_category,
+b.acct_number, b.service_contract_id, b.account_type_id, b.settlement_number,
+c.begin_balance, c.current_balance,c.dr_balance_cash,c.dr_balance_retail,c.dr_balance_interest,c.dr_balance_charges, c.cr_balance_payments, c.cr_balance_refunds, c.cr_balance_interest, c.cr_balance_interest
+from INT_TRANSACTIONS a
+left outer join CAS_CLIENT_ACCOUNT b on b.client_number = a.client_number and b.institution_number = a.institution_number
+left outer join CAS_CYCLE_BOOK_BALANCE c on c.acct_number like (&client_number || '%') and c.institution_number = a.institution_number -- put actual account number
+where
+a.file_number is not null -- = '00342273'-- insert actual file number
+and a.institution_number = &institution_number
+-- and a.transaction_class = 001
+-- and a.transaction_category = '015'
+and b.service_contract_id = '497'
+and account_type_id = '170'
+and a.client_number = &client_number  -- put acctual client_number
+-- and a.transaction_slip = '90451362013'
+order by a.transaction_class ;
+
+SELECT  DISTINCT CCA.CLIENT_NUMBER,
+        IT.VALUE_DATE,
+        (
+            SELECT  COUNT(1)
+            FROM    INT_TRANSACTIONS
+            WHERE   INSTITUTION_NUMBER = IT.INSTITUTION_NUMBER AND
+                    CLIENT_NUMBER = IT.CLIENT_NUMBER AND
+                    VALUE_DATE = IT.VALUE_DATE AND
+                    VALUE_DATE >= CCA.LAST_SETTLEMENT_DATE AND
+                    ACCT_NUMBER = CCA.ACCT_NUMBER AND
+                    TRANSACTION_STATUS NOT IN ('004','015') AND
+                    TRANSACTION_CATEGORY <> '008'
+        ) AS TRANSACTIONS_IN_THIS_DATE
+FROM    CIS_CLIENT_LINKS CCL,
+        CAS_CLIENT_ACCOUNT CCA,
+        INT_TRANSACTIONS IT
+WHERE   CCA.INSTITUTION_NUMBER = CCL.INSTITUTION_NUMBER AND
+        CCA.CLIENT_NUMBER =CCL.CLIENT_NUMBER AND
+        CCA.GROUP_NUMBER = CCL.GROUP_NUMBER AND
+        CCA.SERVICE_CONTRACT_ID = CCL.SERVICE_CONTRACT_ID AND
+        IT.INSTITUTION_NUMBER = CCA.INSTITUTION_NUMBER AND
+        IT.TRANSACTION_STATUS NOT IN ('004','015') AND
+        IT.TRANSACTION_CATEGORY <> '008' AND
+        IT.VALUE_DATE >= CCA.LAST_SETTLEMENT_DATE AND
+        IT.ACCT_NUMBER = CCA.ACCT_NUMBER AND
+        CCA.INSTITUTION_NUMBER = &institution_number
+ORDER BY CCA.CLIENT_NUMBER, IT.VALUE_DATE ASC;
+
+
+SELECT trn.account_amount_net * decode(trn.dr_cr_indicator,'001',1,-1) AS account_amount_net
+FROM cas_client_account cca,
+     int_transactions trn
+WHERE cca.institution_number = &institution_number
+  AND cca.payment_acct_number LIKE (&client_number || '%') -- Client Number linked to your account.
+  AND cca.account_type_id IN ('051') -- Change depending on your selected Account.
+  AND trn.institution_number = cca.institution_number
+  AND trn.acct_number = cca.acct_number
+  AND trn.value_date >= &start_date -- Date from
+  AND trn.value_date <= &end_date -- Date to
+  AND trn.transaction_status NOT IN ('004','015','003')
+  AND NOT (trn.transaction_category = '008'
+           AND trn.transaction_class = '012'
+           AND substr(trn.AUTHOR,1,3) <> 'BAL')
+ORDER BY to_number(trn.account_amount_net);
+
+-------- the results after inward process and settlement process:
+select distinct a.file_number, a.transaction_slip, a.account_address, a.transaction_class, a.transaction_category,
+b.acct_number, b.service_contract_id, b.account_type_id, b.settlement_number,
+c.begin_balance, c.current_balance,c.dr_balance_cash,c.dr_balance_retail,c.dr_balance_interest,c.dr_balance_charges, c.cr_balance_payments, c.cr_balance_refunds, c.cr_balance_interest, c.cr_balance_interest
+from INT_TRANSACTIONS a
+left outer join CAS_CLIENT_ACCOUNT b on b.client_number = a.client_number and b.institution_number = a.institution_number
+left outer join CAS_CYCLE_BOOK_BALANCE c on c.acct_number like (&client_number || '%') and c.institution_number = a.institution_number -- put actual account number
+where
+a.institution_number = &institution_number and a.client_number = &client_number
+ and a.file_number = '00001750'-- insert actual file number
+-- and a.transaction_class = 001
+ and a.transaction_category = '015'
+ and b.service_contract_id = '111'
+ and account_type_id = '012'
+-- and a.transaction_slip = '90451362013'
+order by file_number, account_type_id, service_contract_id, settlement_number, a.transaction_class ;
+
+---- fee by addedum charges
+select *
+from INT_ADDENDUM_CHARGES a
+where
+a.institution_number = &institution_number and a.client_number = &client_number and tran_currency = &currency
+and charge_transaction_slip in ('21000060936')
+order by charge_transaction_slip;
+
+---- charge type
+select * from bwt_charge_type where institution_number = &institution_number and language = 'USA';
+
+----
+select * from INT_TRANSACTIONS  where file_number = 2588 and INSTITUTION_NUMBER  = &institution_number order by transaction_class;
+
+select * from int_transactions where transaction_slip = '21100063166' and INSTITUTION_NUMBER    = &institution_number order by transaction_class;
+
+"REM WORKSPACETAB16",Query19,,79
+define institution_number = '00000111';
+define client_number = '00000181';
+define currency = '978';
+define start_date = '20220315';
+define end_date = '20220322';
+
+SELECT
+	T.transaction_slip,
+	t.card_number as card_number,
+ 	T.transaction_date as transaction_date,
+  	(cdl.location || ' - ' || cdl.pos_region || ' - ' || cdl.pos_city) as location,
+   	(btc.index_field || ' - ' || btc.transaction_category) as transaction_category,
+    (btc1.index_field || ' - ' || btc1.transaction_class) as transaction_class,
+    (btt.index_field || ' - ' || btt.transaction_type) as transaction_type,
+    (bcb.index_field || ' - ' || bcb.card_brand) as card_brand,
+    (bco.index_field || ' - ' || bco.card_organization) as card_organization,
+    t.account_amount_gr * decode(t."TRANSACTION_TYPE", '005',1,-1) as gross_amount,
+    (bc.iso_code || ' - ' || bc.name) as transaction_currency,
+    t.account_amount_net * decode(t."TRANSACTION_TYPE", '005',1,-1) as net_amount,
+        t.account_amount_chg * decode(t."TRANSACTION_TYPE", '005',1,-1) as charge_amount,
+    (bc1.iso_code || ' - ' || bc1.name) as settlement_currency,
+    t.rate_fx_tran_settl as rate_fx,
+    (bts.index_field || ' - ' || bts.transaction_status) as transaction_status,
+    (bct.index_field || ' - ' || bct.charge_type) as charge_type,
+    (bcm.index_field || ' - ' || bcm.capture_method) as sale_channel,
+    t.retrieval_reference,
+    t.card_number,
+    t.acquirer_reference,
+    ccd.our_reference as merchant_id,
+    t.terminal_id,
+    T.summary_settlement as summary_number,
+    t.rate_fx_tran_settl as exchange_rate,
+	T.*
+FROM INT_TRANSACTIONS T
+	left join bwt_transaction_status bts on bts.index_field = T.transaction_status and bts.institution_number = t.institution_number and bts.language = 'USA'
+ 	left join bwt_transaction_category btc on btc.index_field = T.transaction_category and btc.institution_number = t.institution_number and btc.language = 'USA'
+  	left join bwt_transaction_class btc1 on btc1.index_field = T.transaction_class and btc1.institution_number = t.institution_number and btc1.language = 'USA'
+   	left join BWT_SIGN_OPERATORS bso on bso.index_field = T.dr_cr_indicator and bso.institution_number = t.institution_number and bso.language = 'USA'
+    left join BWT_TRANSACTION_TYPE btt on btt.index_field = T.transaction_type and btt.institution_number = t.institution_number and btt.language = 'USA'
+    left join BWT_CARD_BRAND bcb on bcb.index_field = T.card_brand and bcb.institution_number = t.institution_number and bcb.language = 'USA'
+    left join BWT_CARD_ORGANIZATION bco on bco.index_field = SUBSTR(t.AUTHORIZED_BY,0,3) and bco.institution_number = t.institution_number and bco.language = 'USA'
+    left join bwt_currency bc on bc.iso_code = t.tran_currency and bc.institution_number = t.institution_number and bc.language = 'USA'
+    left join bwt_currency bc1 on bc1.iso_code = t.settlement_currency and bc1.institution_number = t.institution_number and bc1.language = 'USA'
+    left join cis_device_link cdl on cdl.terminal_id = T.terminal_id and cdl.institution_number = t.institution_number
+    left join int_addendum_charges charge on charge.institution_number = t.institution_number AND charge.charge_transaction_slip = t.transaction_slip
+	left JOIN bwt_charge_type bct ON bct.index_field = charge.charge_type and bct.institution_number = charge.institution_number and bct.language = 'USA'
+	left JOIN bwt_capture_method bcm ON bcm.index_field = T.capture_method and bcm.institution_number = t.institution_number and bcm.language = 'USA'
+	left JOIN CIS_CLIENT_DETAILS ccd ON ccd.institution_number = t.institution_number and ccd.client_number = t.client_number
+	left join cas_client_account cca on cca.institution_number = t.institution_number and cca.client_number = t.client_number and cca.acct_number = t.acct_number and cca.acct_currency = t.acct_currency
+where T.transaction_slip in (
+	SELECT tran.transaction_slip
+		FROM INT_TRANSACTIONS tran,                     -- Individual slips, cardholder transactions (option 1: source summary)
+   			 INT_TRANSACTIONS summ                       -- Source summaries, grouped cardholder transactions by charge group posted to merchant accounts
+		WHERE summ.INSTITUTION_NUMBER = &institution_number
+		    AND summ.CLIENT_NUMBER = &client_number         -- To insert hierarchical
+		    AND summ.ACCT_CURRENCY = &currency
+		    AND summ.TRANSACTION_DATE between &start_date and &end_date
+		    AND tran.SOURCE_SETTLEMENT = summ.TRANSACTION_SLIP
+		    AND tran.INSTITUTION_NUMBER = summ.INSTITUTION_NUMBER
+		    AND tran.TRANSACTION_CLASS = '002'
+		    AND tran.TRANSACTION_CATEGORY = '001'
+		    AND tran.TRANSACTION_TYPE != '006'
+		    AND tran.REVERSAL_FLAG = '000'              -- Not reversed
+		    AND summ.TRANSACTION_CLASS = '012'
+		    AND summ.TRANSACTION_CATEGORY = '016'
+	union
+	SELECT fee.transaction_slip
+		FROM INT_TRANSACTIONS fee
+		WHERE fee.INSTITUTION_NUMBER = &institution_number
+			AND fee.CLIENT_NUMBER = &client_number
+			AND fee.ACCT_CURRENCY =  &currency
+			AND fee.TRANSACTION_DATE between &start_date AND &end_date
+			AND fee.REVERSAL_FLAG = '000'
+		 	-- AND fee.TRANSACTION_STATUS in ('004' ,'009','007')
+		 	AND fee.TRANSACTION_CLASS in ('002')
+		 	AND fee.TRANSACTION_CATEGORY in ('007')
+	)
+ORDER BY t.transaction_date, t.transaction_slip
+ 	;

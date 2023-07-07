@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "defaultSetup">  
+
+<TableExtractDefinition TableName="SYS_INSTITUTION_LICENCE"/>
+<TableExtractDefinition TableName="CBR_BILLING_CYCLE"/>
+<TableExtractDefinition TableName="CBR_CHART_OF_ACCOUNTS">
+ <WhereClause> SYNTH_EXTENSION='000' and account_type_id='000' and acct_currency in ('978','999') </WhereClause>
+</TableExtractDefinition>
+<TableExtractDefinition TableName="CBR_FEE_GROUPING"/>
+<TableExtractDefinition TableName="CBR_CURRENCY_RATES"/>
+<TableExtractDefinition TableName="CBR_FX_RATE_GROUP"/>
+<TableExtractDefinition TableName="CBR_FX_RATE_SPREADS"/>
+<TableExtractDefinition TableName="CBR_PERIODIC_REF_MAPPING"/>
+<TableExtractDefinition TableName="CBR_CARD_SCHEME_SETTLEMENT"/>
+<TableExtractDefinition TableName="CBR_PROCESS_ACTION"/>
+<TableExtractDefinition TableName="CBR_SEQUENCE_NUMBERS"/>
+<TableExtractDefinition TableName="CBR_STATEMENT_DEFINITION"/>
+<TableExtractDefinition TableName="CBR_STATEMENT_MESSAGE_DEF"/>
+<TableExtractDefinition TableName="CBR_STATEMENT_MESSAGE_TEXT"/>
+<TableExtractDefinition TableName="CBR_STATEMENT_SORT_TYPE"/>
+<TableExtractDefinition TableName="CHT_BATCH_TRANSACTIONS"/>
+<TableExtractDefinition TableName="CHT_CALENDAR_TYPE"/>
+<TableExtractDefinition TableName="CHT_CARD_BRAND"/>
+<TableExtractDefinition TableName="CHT_CHARGE_TYPE"/>
+<TableExtractDefinition TableName="CHT_CLIENT_BRANCH"/>
+<TableExtractDefinition TableName="CHT_CLIENT_FEE_ID"/>
+<TableExtractDefinition TableName="CHT_DESTINATION_BPR"/>
+<TableExtractDefinition TableName="CHT_DEVICE_CAPABILITY"/>
+<TableExtractDefinition TableName="CHT_PERIODIC_REFERENCE"/>
+<TableExtractDefinition TableName="CHT_POSTING_TARIFF"/>
+<TableExtractDefinition TableName="CHT_PROCESS_NAME"/>
+<TableExtractDefinition TableName="CHT_REFERENCE_OBJECT"/>
+<TableExtractDefinition TableName="CHT_RULE_ID"/>
+<TableExtractDefinition TableName="CHT_SETTLEMENT_CATEGORY"/>
+<TableExtractDefinition TableName="CHT_SETTLEMENT_METHOD"/>
+<TableExtractDefinition TableName="CHT_STATEMENT_FORMAT"/>
+<TableExtractDefinition TableName="CHT_STATEMENT_GENERATION"/>
+<TableExtractDefinition TableName="CHT_STATEMENT_TYPE"/>
+<TableExtractDefinition TableName="CHT_TRANSACTION_TYPE"/>
+<TableExtractDefinition TableName="CHT_TRANSACTION_STATUS"/>
+<TableExtractDefinition TableName="SYS_BUSINESS_CALENDAR"/>
+<TableExtractDefinition TableName="SYS_POSTING_DATE"/>
+<TableExtractDefinition TableName="CHT_ACCOUNT_TYPE_ID"/>
+<TableExtractDefinition TableName="CHT_FX_RATE_CATEGORY"/>
+<TableExtractDefinition TableName="CHT_PROCESS_ID">
+ <WhereClause> GROUPS in ('G','N','Z') </WhereClause>
+ </TableExtractDefinition>
+<TableExtractDefinition TableName="CHT_ACCOUNT_CONDITION_SET">
+ <WhereClause> GROUPS in ('N','Z') </WhereClause>
+ </TableExtractDefinition> 
+<TableExtractDefinition TableName="CHT_SERVICES">
+ <WhereClause> GROUPS in ('N','Z') </WhereClause>
+ </TableExtractDefinition>
+<TableExtractDefinition TableName="CHT_SERVICE_CONTRACT_ID">
+ <WhereClause> GROUPS in ('N','Z') </WhereClause>
+ </TableExtractDefinition>
+ <TableExtractDefinition TableName="CHT_CLEARING_CHANNEL">
+ <WhereClause> index_field in ('000','999') </WhereClause>
+ </TableExtractDefinition>
+ 
+</Module>
+</root>

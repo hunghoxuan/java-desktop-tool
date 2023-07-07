@@ -1,0 +1,665 @@
+"REM WORKSPACETAB0",Query1,,24
+select * from CHT_AREA_OF_ACTION where
+index_field in (243,
+220,
+220,
+243
+);
+
+select * from CBR_ASSIGNED_SERVICES where INSTITUTION_NUMBER = 12
+and SERVICE_CONTRACT_ID = '202' ;
+
+select * from cht_services where index_field in (
+701,
+704,
+708,
+727,
+728,
+729,
+730
+
+) and INSTITUTION_NUMBER = 12  ;
+
+select * from cht_services where service_id like 'Cl-VISA%' order by 1;    
+
+
+"REM WORKSPACETAB1",Query16,,16
+select * from CBR_CHART_OF_ACCOUNTS  where INSTITUTION_NUMBER  = 2 and
+ GL_ACCOUNT_TYPE_ID   = '102'
+ and SYNTH_EXTENSION  = 183;
+
+ select * from INT_FILE_LOG_DETAILS   where INSTITUTION_NUMBER  = 2
+ and CLEARING_CHANNEL  in (384,385) order by 1;
+
+select * from INT_FILE_LOG_DETAILS   where INSTITUTION_NUMBER  = 2
+ and CLEARING_CHANNEL  in (183) order by 1;
+
+ select distinct file_number from int_transactions where file_number in ( select file_number from INT_FILE_LOG_DETAILS   where INSTITUTION_NUMBER  = '00000002'
+ and CLEARING_CHANNEL  in (183) ) and  INSTITUTION_NUMBER  = '00000002'  order by 1;
+
+ select * from int_transactions where  file_number = 00015112 and   INSTITUTION_NUMBER  = '00000002'  order by 1 ;
+
+ select * from int_transactions where  file_number = '00015112' and   INSTITUTION_NUMBER  = '00000002'  order by transaction_class ;
+"REM WORKSPACETAB2",Query12,,4
+select * from CBR_CHANNEL_DEFINITION  where INSTITUTION_NUMBER = 2
+and transaction_destination  = 184
+and settlement_currency = 840
+ order by 1;
+"REM WORKSPACETAB3",CBR_TRANSACTION_CHARGES,,36
+select distinct charge_type,fee_category, service_contract_id from CBR_TRANSACTION_CHARGES
+where INSTITUTION_NUMBER  = '00000015'
+order by 1;
+
+select distinct charge_type, fee_category, service_contract_id from CBR_TRANSACTION_CHARGES
+where INSTITUTION_NUMBER  = '00000002'
+order by 2;
+
+--interchange fee 901
+--scheme fee 501
+
+select * from CBR_TRANSACTION_CHARGES
+where INSTITUTION_NUMBER  = '00000015'
+and charge_type = '501'
+--and service_contract_id = '221'
+order by 1;
+
+/*
+select * from CBR_TRANSACTION_CHARGES
+where INSTITUTION_NUMBER  = '00000015'
+and  charge_type in (
+503,
+504,
+505,
+506,
+917,
+502,
+
+055,
+054,
+500
+
+)
+and service_contract_id = '202'
+and institution_number = 2
+order by charge_type;
+"REM WORKSPACETAB4","Scheme fee Charge package",,45
+select * from CBR_CHARGE_PACKAGE   where INSTITUTION_NUMBER = 2 and charge_type = 901 order by fee_category;
+
+select * from CHT_SERVICE_CONTRACT_ID order by 1;  ---111 all acquirer
+
+select * from CHT_FEE_CATEGORY   order by 1;
+
+/*
+500	All-In
+501	FOCIC
+502	GRWIC
+503	PAYG
+504	Simple
+505	FOC B
+506	GRW B
+
+----------------
+507	Enhanced IC++
+
+
+507	503
+507	504
+507	505
+507	506
+507	917
+507	502
+507	501
+507	055
+507	054
+507	901
+507	700
+507	500
+
+-------
+
+*/
+
+select * from cht_charge_type order by 1;
+/*
+917	Cash Back Fee
+901	Interchange Fee
+700	Visa IAF
+
+002	MSC
+501	Scheme Fee
+
+"REM WORKSPACETAB5",Query6,,3
+select * from SYS_PROCESS_USER_SETUP  where INSTITUTION_NUMBER = 2 order by process_name;
+
+select * from CBR_CHANNEL_DEFINITION    where INSTITUTION_NUMBER = 2 and transaction_source = 015 order by 1;
+"REM WORKSPACETAB6",Query7,,7
+select distinct file_number from int_transactions where  institution_number = '00000002'
+and transaction_destination  = '184'
+ order by 1;
+
+
+---00008363
+
+"REM WORKSPACETAB7",Query8,,26
+
+
+select * from int_transactions where  institution_number = '00000002'
+and file_number = '00008375'
+ order by transaction_class;
+
+ select * from cbr_transaction_charges where record_id_number in ( 0800084524,
+0500139583,
+0500139572
+)
+ and  institution_number in (  '00000015')
+ order by 1;
+
+ select * from CBR_ASSIGNED_SERVICES  where INSTITUTION_NUMBER = 2 and
+ service_id in (728, 727
+) order by 1;
+
+---Diners   ---test data
+
+select * from int_transactions where  institution_number = '00000002'
+and file_number = '00008480'
+ order by transaction_class;
+
+
+ select * from cbr_transaction_charges where record_id_number in  (1999999999 ) order by 1;
+
+"REM WORKSPACETAB8",Query5,,20
+select * from SYS_DOMESTIC_CLEARING   where INSTITUTION_NUMBER   = 2 and card_organization = '006' order by 1;
+
+--578  Norway         706   Domestic - NO
+--756  Switzerland    707  Domestic - CH
+--458	Malaysia      731	Domestic - MY  
+
+
+select * from CHT_AREA_OF_ACTION  where index_field in (706, 707) order by 1;
+
+--578  Norway         706   Domestic - NO
+--756  Switzerland    707  Domestic - CH
+--458	Malaysia      731	Domestic - MY  
+
+
+select * from CHT_COUNTRY   where index_field in  ( 578, 756) order by 1;
+
+select * from CHT_COUNTRY  where client_country like 'Malay%' order by 1;  ---458	Malaysia
+
+select * from CHT_AREA_OF_ACTION where area_of_action like 'Domest%' and country_code = 458 order by 1;   ---002 Domestic
+--731	Domestic - MY
+"REM WORKSPACETAB9","setup note.sql",,319
+---BCB-AWS_BCB_PM_SOURCE
+
+
+
+select * from CHT_CARD_ORGANIZATION   order by 1;
+
+--006	Diners
+
+select *  from CBR_CHANNEL_DEFINITION
+where CARD_ORGANIZATION   = '006'
+order by 1;
+
+
+select *  from CBR_CHANNEL_DEFINITION
+where CARD_ORGANIZATION   = '006'
+order by 1;
+
+
+select *  from CBR_CHANNEL_DEFINITION
+where CARD_ORGANIZATION   = '006'
+order by 1;
+
+
+
+---outward
+--184
+--365
+--inward
+---999
+
+select * from CHT_CLEARING_CHANNEL where index_field in (183,184, 364, 365, 999)   order by 1;
+--184	Outward Diners
+--365	Out BIP Diners
+
+select * from CBR_SERVICE_DEFINITION  where card_organization = '006'
+and service_category = '003'
+ order by 1;  -----institution_number 2
+/*
+card_brand
+
+016
+157
+145
+157
+016
+145
+*/
+select * from CHT_CARD_BRAND     where index_field in (
+016,       --Diners Cons
+157,
+145,       --Diners Small Bus
+157,       --Diners Comm
+016,
+145
+) ;
+
+
+----
+/*
+service_category = 003  --Clearing Services
+
+749
+750
+842
+
+service_category = 002   - Acquiring
+
+749
+750
+842
+
+
+
+*/
+
+
+
+ select * from CHT_SERVICE_CATEGORY   order by 1;
+
+
+ select * from CHT_SERVICES  where index_field in (749,
+750,
+842,
+845) order by 1;
+
+--749	Cl - DIN Commercial
+	--750	Cl - DIN Consumer       BOA
+--842	Cl - DIN Small Business
+
+
+-------
+select * from CHT_SERVICE_CONTRACT_ID where index_field = 221 order by 1; 
+
+select * from CBR_SERVICE_CONTRACT where INSTITUTION_NUMBER  = 2 and service_contract_id =221  order by 1;
+
+
+
+select * from CBR_ASSIGNED_SERVICES  where  --- INSTITUTION_NUMBER = '00000002' and
+service_contract_id = '221'
+ order by 1;
+
+
+select * from cht_account_condition_set where index_field in (000001,
+000718
+)  order by 1;
+
+
+select * from CBR_TRANSACTION_CHARGES where SERVICE_ID in ('750'--,749,842
+)
+ and INSTITUTION_NUMBER = '00000015' order by 1;
+
+
+select * from CBR_TRANSACTION_CHARGES where SERVICE_ID in (845,925) and INSTITUTION_NUMBER = '00000015' order by 1;
+
+select * from CHT_CHARGE_TYPE order by 1;
+
+select * from CBR_TRANSACTION_CHARGES where charge_type = 501 and INSTITUTION_NUMBER = '00000015' order by 1;
+select * from CBR_CHARGE_PACKAGE  where charge_type = 501 and INSTITUTION_NUMBER = '00000002' order by 1;
+
+select * from CBR_CHARGE_PACKAGE  where fee_category = 507 and INSTITUTION_NUMBER = '00000002' order by 1;
+
+select * from CHT_FEE_CATEGORY   order by 1;
+
+
+select * from CHT_charge_type   order by 1;
+--
+--054	Commission by MCC
+--055	CNP Fee
+
+--500	Refund Charge
+--501	Scheme Fee
+--502	BPS Processing Fee
+--503	Paper Fee
+--504	Non-Secure Fee
+--505	Int Trans Fee
+--506	Capture Method Fee
+--507	Cashback Payment
+
+---700	Visa IAF
+--901   Interchange Fee
+--917
+
+
+
+
+
+select * from CBR_SERVICE_DEFINITION  where card_organization = '003'
+and service_category = '003'
+ order by 1;
+
+
+
+ select * from CBR_ASSIGNED_SERVICES  where   INSTITUTION_NUMBER = '00000015'
+--and service_contract_id = '221'
+ order by 1;
+
+
+
+select * from CHT_ACCOUNT_TYPE_ID   order by 1;
+
+--091	Interbank Sus Diners
+
+select * from CAS_CLIENT_ACCOUNT where INSTITUTION_NUMBER = '00000002' and client_number like '90000013' order by 1;
+ --90000003, 90000013
+
+ select * from CIS_CLIENT_DETAILS   where INSTITUTION_NUMBER = '00000002' and CLIENT_NUMBER in (90000003, 90000013) order by 1;
+---90000003, Institution Client DINERS
+
+
+
+
+select * from CBR_CONTRACT_ACCT_TYPES  where INSTITUTION_NUMBER = '00000002' and SERVICE_CONTRACT_ID  = '221' order by 1;
+
+--142	FX Protection Diners
+	--091	Interbank Sus Diners
+--124	Write-off Diners
+--178	Write-offDinersBIP
+--183	FX ProtectionDnrsBIP
+	--186	Interchange Rejects Diner
+
+
+select * from cht_account_type_id where index_field in (
+091,
+124,
+142,
+178,
+183,
+186
+
+)   ;
+
+
+select * from CBR_FX_RATE_RULES   where    INSTITUTION_NUMBER = '00000002'
+and clearing_channel in ( 183,184,365,364)
+
+ order by 1;
+
+ select * from CHT_FX_RATE_CATEGORY order by 1;  ---002	VISA
+
+ select * from cht_process_id order by 1;
+-- 001 Phase 1
+--002  Phase 2
+--003  Phase 3
+--005  Posting dest.
+--006  Transaction chrg
+--013  Post Settl inw
+--014  Post Settl Out
+--045  Post Sett DINERS
+
+ select * from CBR_CHRG_TYPE_AREA_OF_ACTION     where INSTITUTION_NUMBER   = 2 order by 1;
+
+select * from SYS_SCHEME_REGION        where INSTITUTION_NUMBER   = 2 and card_org = '006' order by 1;
+
+
+
+ select distinct clearing_channel from CBR_FX_RATE_RULES   where    INSTITUTION_NUMBER = '00000002' order by 1;
+
+ select * from cht_clearing_channel
+ where index_field in (
+ 	183,
+	184,
+364,
+365,
+999
+);
+
+
+--364	In BIP Diners
+--365	Out BIP Diners
+
+
+
+
+select * from CBR_ACCT_RULES_GROUP  where INSTITUTION_NUMBER = '00000002'  and clearing_channel in (183 ---,364
+)
+order by clearing_channel;
+
+select * from CBR_ACCT_RULES_INSTRUCTIONS  where INSTITUTION_NUMBER = '00000002'
+and record_id_number in (
+select record_id_number from CBR_ACCT_RULES_GROUP  where INSTITUTION_NUMBER = '00000002'  and clearing_channel in (183 ---,364
+)
+)
+ order by record_id_number, process_id, sequence_number;
+
+ select * from CIS_INTERCHANGE_DETAILS  where INSTITUTION_NUMBER = '00000002' and card_organization = '006' order by 1;
+
+
+select * from cht_transaction_type where synth_ext in  (730, 740, 743, 281,283, 287) ;  ---000740	IO Clearing Fee     000730	IO Refund-All
+
+
+
+
+select * from SYS_DOMESTIC_CLEARING   where INSTITUTION_NUMBER   = 2 and card_organization = '006' order by 1;
+
+--578  Norway         706   Domestic - NO
+--756  Switzerland    707  Domestic - CH
+--458	Malaysia      731	Domestic - MY
+
+
+-- To define AOE EEA and non EEA, CBR_CHRG_TYPE_AREA_OF_ACTION is used    ?
+
+
+--II)Acquiring service contract
+select * from CBR_SERVICE_CONTRACT where INSTITUTION_NUMBER   = '00000002' and service_contract_id = 111 order by 1;
+
+select * from CBR_SERVICE_DEFINITION   where INSTITUTION_NUMBER   = '00000002' and service_category = '002' and card_organization = '006' order by 1;
+
+--408	Acq - DIN Consumer
+--409	Acq - DIN Commercial
+--410	Acq - DIN Small Business
+
+
+select * from CHT_SERVICES    where index_field in (
+408,
+409,
+410
+
+) order by 1;
+
+
+select * from CBR_ASSIGNED_SERVICES   where INSTITUTION_NUMBER   = 2 and service_contract_id = 111 and service_category = '002'
+and service_id in (408,
+409,
+410)  order by 1;
+
+select * from CBR_CONTRACT_ACCT_TYPES where INSTITUTION_NUMBER   = 2 and SERVICE_CONTRACT_ID  = '111' order by 1;
+--002	Fee Collect
+--003	Grp Spec Fee Collect
+--004	Dispute
+--005	Deposit
+--006	Hold
+--008	Chargeback Bill Acct
+--009	Frozen Funds
+--010	Repayment Plan
+--012	Merch. Payment Acct
+
+
+
+select * from CHT_ACCOUNT_TYPE_ID   order by 1;
+--150	Revenue Diners
+--145	Expense Diners
+--142	FX Protection Diners
+
+
+
+select * from CBR_ACCOUNT_TYPE     where INSTITUTION_NUMBER   = 2 order by 1;
+
+
+---????select * from CBR_CARD_SCHEME_SETTLEMENT        where INSTITUTION_NUMBER   = 2 order by 1;
+
+--select * from cht_card_organization where index_field = 201 order by 1;
+
+select * from CHT_PROCESS_ID      order by 1;   ---045	Post Sett DINERS
+
+---settlement currency  wiht channel transaction_source 183, transaction_destination 184--
+select * from CBR_CHANNEL_DEFINITION     where INSTITUTION_NUMBER   = 2 and client_number = '90000003' order by transaction_source;
+
+
+
+"REM WORKSPACETAB10","Setup Clearing service contract Diners.15032022.sql",,93
+--setup Diners Clearing service contract
+--1
+select * from CHT_SERVICE_CONTRACT_ID where index_field = 221 order by 1;
+--2
+select * from CBR_SERVICE_CONTRACT where INSTITUTION_NUMBER  = 2 and service_contract_id =221  order by 1;
+
+--3
+select * from CBR_ASSIGNED_SERVICES  where  INSTITUTION_NUMBER = '00000002' and
+service_contract_id = '221'
+ order by 1;
+ --4
+ select * from cht_services where index_field in (749,  ---Cl - DIN Commercial
+842,   ---Cl - DIN Small Business
+750    ---Cl - DIN Consumer
+)   order by 1;  ---institution_number = 0
+
+
+
+--6)
+select * from cht_card_brand where   index_field in (157, 016,145)  order by 1;  ---institution_number 2001
+
+
+---7) account_type   diners
+select * from CBR_ACCOUNT_TYPE  where INSTITUTION_NUMBER = 2 and account_type_id
+in ('091', '186' ---, '124' ( Write off no need)
+) order by 1;
+
+select * from cht_account_category order by 1;   ---005	Internal account     012	Write-Off
+
+-- 8) Cis_client_detail
+
+select * from CIS_CLIENT_DETAILS  where INSTITUTION_NUMBER = 2 and CLIENT_NUMBER   = '90000003' order by 1;
+
+---9)  cas_client_account for Clearing client 90000003
+select * from CAS_CLIENT_ACCOUNT where INSTITUTION_NUMBER = 2 and CLIENT_NUMBER   = '90000003'
+and account_type_id in ('091', '186')  --change acct_number , acct_currency accordingly with the settlement currencies
+ order by 1;
+
+--10)   service definition
+select * from CBR_SERVICE_DEFINITION  where  card_organization = '006'  and
+service_category = '003'
+ order by 1;
+
+-- service_id in (749, --?         842, --?  750    ) ;
+
+--11) cbr_channel_definition
+ select * from CBR_CHANNEL_DEFINITION  where TRANSACTION_DESTINATION = '184' and   INSTITUTION_NUMBER = 2 order by 1;
+select * from CBR_CHART_OF_ACCOUNTS   where    INSTITUTION_NUMBER = 2 and synth_extension = 184 order by 1;
+
+---12)
+
+ select * from CBR_CHANNEL_DEFINITION  where TRANSACTION_SOURCE = '183' and   INSTITUTION_NUMBER = 2 order by 1;
+select * from CBR_CHART_OF_ACCOUNTS   where    INSTITUTION_NUMBER = 2 and synth_extension = 183 order by 1;
+
+select * from CHT_SYNTH_EXT_SOURCE where index_field = 003 order by 1; --INC. CLEARING CHN.
+
+select * from CHT_CLEARING_CHANNEL   where index_field in (183,184,384,385) order by 1;
+
+
+
+
+
+
+
+ select distinct transaction_destination from CBR_CHANNEL_DEFINITION  where card_organization = '006' order by 1;
+
+ select * from CHT_CLEARING_CHANNEL   where index_field in (184, 365, 385) order by 1;
+
+ select * from CHT_CLEARING_CHANNEL   where synth_ext in ( 385) order by 1;
+
+
+
+
+
+
+
+
+
+
+/*    ---7)  ---value they set in inst 15 , interchange estimation ------   Compliance team
+---Compliance team will need to set it up---
+select * from CBR_TRANSACTION_CHARGES  where INSTITUTION_NUMBER = '00000015'  and service_contract_id = 221
+and service_id in (749,
+750,
+842
+)
+  order by service_id;
+
+
+
+
+ --select * from cht_services where index_field in (841,846 --Not use); ---Cl - DIN Small Business
+, CLIENT_NUMBER
+"REM WORKSPACETAB11",Query15,,22
+select * from CBR_TRANSACTION_CHARGES  where INSTITUTION_NUMBER = '00000015'  and service_contract_id = 221;
+select * from user_tab_columns where column_name like 'CLIENT_REGION' order by 1;
+
+select * from   CIS_INTERCHANGE_DETAILS where INSTITUTION_NUMBER = 2 and client_region in (005,014)
+--and acquiring_bin = '367121'
+
+ order by client_region;
+
+ select * from CHT_REGION where index_field in (
+ 000,
+006,
+008,
+010,
+012,
+014,
+015,
+017,
+018,
+019,
+020,
+021
+ );
+"REM WORKSPACETAB12",Query13,,5
+select * from CBR_CHART_OF_ACCOUNTS where INSTITUTION_NUMBER  = 2
+and SERVICE_CONTRACT_ID = 221
+order by 1;
+
+select * from CBR_POSTING_INSTRUCTIONS  where INSTITUTION_NUMBER  = 2 order by 1;
+"REM WORKSPACETAB13",Query4,,3
+select * from CBR_CHRG_TYPE_AREA_OF_ACTION  where card_org = '006'  ;
+
+select * from CHT_AREA_OF_ACTION   where index_field in (723, 228)
+"REM WORKSPACETAB14","setup aws_bcb_pm_source.sql",,25
+-        Cbr service def
+
+-        Cbr serv contract
+
+-        Cbr assigned services
+
+-        Cbr contract accounts for interbank suspense accounts (in scheme settlement currencies) and Scheme rejects accounts (scheme settl currencies). Then if accounts mandatory also cas_client_accounts and cycle book balance for the current cycle (you see the current cycle in cbr_billing_cycle).
+
+-         Cbr posting instr for the above accounts and clearing serv contr
+
+-        Cbr channel def (in scheme settl curr) and
+
+-        cbr FX rules for each channel. The cbr fx sread scheme rates spread to be added manually, the cbr__currencies then will be populated by Scheme FX rates load, by process but the system needs a spread record.
+
+-        GL setup includes cbr accounting group, cbr accounting instructions and cbr_chart of accts all for the new channels. Here are also rev/exp for IC fees by trx types/Scheme. If required Nga can help here and even with above. Important is it stays in your ownership onwards.
+
+-        Of course all CHTs adapted accordingly.
+
+-        Cis_interch_details for BO scheme processing to be added with dummy values of ICA/member id and processor id. For auth there is another table in hand of comms. Nga can advise.
+
+-        SYS_DOMESTIC_CLEARING if new card org. Bilateral clearing not required.
+
+-        SYS_CLEARING_CURRENCIES is a new table I am not aware of, usually we take curr from cht_currencies.
+
+-        CHT_RETAINED_CLEARING
+"REM WORKSPACETAB15",Query9,,1
+select * from SYS_CLEARING_CURRENCIES order by 1;

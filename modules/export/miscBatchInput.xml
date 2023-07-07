@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "acqBatchInp"> 
+
+<TableExtractDefinition TableName="SYS%"  columnName = "PROCESS_NAME"> 
+<WhereClause> process_name = '105'</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_PROCESS_NAME"> 
+<WhereClause> index_field = '105'</WhereClause>
+</TableExtractDefinition>
+
+</Module>
+</root>

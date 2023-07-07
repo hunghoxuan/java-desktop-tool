@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "ChannelSetup"> 
+
+<TableExtractDefinition TableName="CHT_CLEARING_CHANNEL"> 
+<WhereClause> index_Field not in ('000','999','997','998','101','102')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CIS_INTERCHANGE_DETAILS"> 
+<WhereClause> settlement_currency='978' and CARD_ORGANIZATION in ('003')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CHANNEL_DEFINITION"> 
+<WhereClause> transaction_source not in ('101') and transaction_destination not in ('102') and SETTLEMENT_CURRENCY='978' </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_FX_RATE_RULES"> 
+<WhereClause> clearing_channel not in ('101','102','997','998') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="SYS_PROCESS_TRAN_SELECTION"> 
+<WhereClause> clearing_channel not in ('997','998') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CHART_OF_ACCOUNTS"> 
+<WhereClause> SYNTH_EXT_SOURCE in ('001','003') and GL_ACCT_CURRENCY='978' and SYNTH_EXTENSION not in ('000','997','998','101','102') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_ACCT_RULES_GROUP"> 
+<WhereClause> clearing_channel not in ('101') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_ACCT_RULES_INSTRUCTIONS"> 
+<WhereClause> (RECORD_ID_NUMBER,INSTITUTION_NUMBER) not in (select RECORD_ID_NUMBER,INSTITUTION_NUMBER from CBR_ACCT_RULES_GROUP where clearing_channel not in ('101') )  </WhereClause>
+</TableExtractDefinition>
+
+
+<TableExtractDefinition TableName="SYS_CONFIGURATION"> 
+<WhereClause> CONFIG_KEYWORD = 'VoidOutwardChannel' </WhereClause>
+</TableExtractDefinition>
+
+</Module>
+</root>

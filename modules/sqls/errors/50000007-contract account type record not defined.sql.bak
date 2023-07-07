@@ -1,0 +1,3 @@
+SELECT * FROM BW3.CBR_POSTING_INSTRUCTIONS WHERE institution_number = '&institution_number' and SERVICE_CONTRACT_ID = '&service_contract_id' and account_type_id = '&account_type_id' and acct_currency = '&currency';
+
+select * from BW3.CAS_CLIENT_ACCOUNT WHERE INSTITUTION_NUMBER = '&institution_number' AND CLIENT_NUMBER = '&client_number' and acct_currency = '&currency';

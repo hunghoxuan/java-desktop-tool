@@ -1,0 +1,70 @@
+PROCEDURE GotoNextPostingDate(STRINSTITUTION IN VARCHAR2, STRSTATIONS IN VARCHAR2, NSTATUS OUT NUMBER)
+IS
+  TYPE CURTYPE 		IS REF CURSOR;
+  STATIONS      		CURTYPE;
+  --
+  R_STATION			SYS_POSTING_DATE%ROWTYPE;
+  --
+  V_STATIONNUMBERS 	VARCHAR2(4000);
+  V_NEXTDATE  		VARCHAR2(8);
+  V_STRSQL			VARCHAR2(4000);
+  V_DUMMY				NUMBER := 0;
+  --
+  ERR_ONGOING_PROC	EXCEPTION;
+BEGIN
+  --
+  NSTATUS := 0;
+  --
+  V_STATIONNUMBERS := REPLACE(STRSTATIONS,',',''',''');
+  --
+  --TN-31888, use institution number in query as well
+  V_STRSQL := 'select count(*) from int_process_log where processing_status = ''001'' and station_number in (''' || V_STATIONNUMBERS || ''')';
+  V_STRSQL := V_STRSQL || ' and institution_number = ''' || STRINSTITUTION || '''';
+  --
+  EXECUTE IMMEDIATE V_STRSQL INTO V_DUMMY;
+  --
+  IF V_DUMMY > 0 THEN
+    NSTATUS := 3;
+    RAISE ERR_ONGOING_PROC;
+  END IF;
+  --
+  V_STRSQL := 'SELECT * FROM SYS_POSTING_DATE WHERE INSTITUTION_NUMBER = ''' || STRINSTITUTION || '''
+               and  STATION_NUMBER in (''' ||  V_STATIONNUMBERS || ''')';
+  --
+  OPEN STATIONS FOR V_STRSQL;
+  LOOP
+    EXIT WHEN STATIONS%NOTFOUND;
+    --
+    FETCH STATIONS INTO R_STATION;
+    --
+    V_NEXTDATE := BW_LIB_DATE.DATEADDDAYS(R_STATION.POSTING_DATE, 1, BW_CONST2.BUS_DAY_IGNORE);
+    --
+    V_STRSQL := 'Update SYS_POSTING_DATE set POSTING_DATE = ''' || V_NEXTDATE || '''
+          where INSTITUTION_NUMBER = ''' || STRINSTITUTION || '''
+          and  STATION_NUMBER = ''' ||  R_STATION.STATION_NUMBER || '''';
+    --
+    BEGIN
+      EXECUTE IMMEDIATE  V_STRSQL;
+    EXCEPTION
+      WHEN OTHERS THEN
+        --
+        ROLLBACK;
+        NSTATUS := 2;
+    END;
+  END LOOP;
+  --
+  IF NSTATUS = 0 THEN
+    --
+    COMMIT;
+    NSTATUS := 1;
+  ELSE
+
+    ROLLBACK;
+  END IF;
+  --
+EXCEPTION
+  WHEN ERR_ONGOING_PROC THEN
+    ROLLBACK;
+  WHEN OTHERS THEN
+    ROLLBACK;
+END;

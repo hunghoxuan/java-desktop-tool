@@ -1,0 +1,15 @@
+SELECT * FROM CAS_CLIENT_ACCOUNT WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM CIS_ADDRESSES WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM CIS_CLIENT_DETAILS WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM CIS_CLIENT_LINKS WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM CIS_CLIENT_RELATION_LINKS WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM CIS_DEVICE_LINK WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM CIS_SETTLEMENT_INFORMATION WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM CIS_TICKET WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM HST_STATEMENT_ACCOUNT WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM HST_STATEMENT_ADDRESS WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM INT_ADDENDUM_CHARGES WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM INT_BATCH_CAPTURE WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM INT_SUNDRY_HISTORY WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM INT_SUNDRY_TRANSACTIONS WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;
+SELECT * FROM INT_TRANSACTIONS WHERE institution_number  in ('&institution_number') AND (CLIENT_NUMBER ='&client_number') order by 1;

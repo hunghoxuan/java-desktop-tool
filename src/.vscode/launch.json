@@ -1,0 +1,25 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    // "classPaths": ["$HOME/bin/some.jar", "$HOME/bin/some_other.jar"],
+
+    "version": "0.2.0",
+    "configurations": [
+
+        // {
+        //     "type": "java",
+        //     "name": "Launch Current File",
+        //     "request": "launch",
+        //     "mainClass": "${file}",
+        //     "classPaths": ["/lib/*.jar"],
+        // },
+        {
+            "type": "java",
+            "name": "Launch Main",
+            "request": "launch",
+            "mainClass": "Main",
+            "projectName": "RS2_BA_TOOLS"
+        }
+    ]
+}

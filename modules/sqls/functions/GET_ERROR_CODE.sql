@@ -1,0 +1,21 @@
+FUNCTION "GET_ERROR_CODE" (P_NOTE_TXT in varchar2)
+RETURN  VARCHAR2
+IS
+   	   return_value  varchar2(2000);
+   	   NOTE_TEXT VARCHAR2(2000);
+BEGIN
+		NOTE_TEXT := P_NOTE_TXT;
+	LOOP
+	    return_value := return_value ||' '|| SUBSTR(NOTE_TEXT,3,5);
+		IF LENGTH(NOTE_TEXT) < 100 THEN
+			EXIT;
+		END IF;
+			NOTE_TEXT := SUBSTR(NOTE_TEXT,100);
+	END LOOP;
+
+	RETURN return_value;
+EXCEPTION
+	WHEN OTHERS
+	THEN
+		RETURN NULL;
+END;

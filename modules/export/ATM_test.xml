@@ -1,0 +1,11 @@
+
+<root>
+<Module name = "ATM"> 
+	<export table="cbr_assigned_services"> 
+		<where> service_contract_id in ('110') and service_category in ('002') </where>
+		<REPLACEVALUE>service_contract_id,110,057</REPLACEVALUE>
+	</export>
+	
+
+</Module>
+</root>

@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ROOT>
+	<param key=":institution_number">	
+	</param>
+	<param key=":client_number">	
+	</param>
+	
+	<query name="ClientDetail">
+		<sql>		
+			select * from cis_client_details where INSTITUTION_NUMBER in (':institution_number') and client_number in (':client_number');
+		</sql>
+		<TransmittedConditionColumns>
+			institution_number,client_number
+		</TransmittedConditionColumns>
+	</query>
+	
+	
+	<query name="Settlement Information" parent="ClientDetail">
+		<sql>
+			select si.INSTITUTION_NUMBER, si.client_number, cl.entity_id, si.funding_client, si.settlement_number, si.RECORD_DATE,si.ACCT_CURRENCY,si.COUNTER_BANK_NUMBER,si.COUNTER_BANK_ACCOUNT,si.NOTE_TEXT,si.CONFIRMATION_METHOD,si.RECEIVER_COUNTRY_CODE
+			from cis_settlement_information si, cis_client_links cl 
+			where si.institution_number = cl.institution_number and si.client_number = cl.client_number 
+			and si.institution_number = ':institution_number' and si.client_number = ':client_number'
+		</sql>
+		<error>
+			((entity_id=001 and funding_client != institution_number) or (entity_id=002 and funding_client != 90000102 ))
+		</error>
+		
+	</query>
+	
+	<query name="cis_device_link" parent="ClientDetail">	
+		<sql>
+			select * from cis_device_link where institution_number = :institution_number and client_number = :client_number
+		</sql>
+	</query>
+	
+	<query name="CIS_ADDRESSES" parent="ClientDetail">
+		<sql>
+			select * from CIS_ADDRESSES where institution_number = :institution_number and client_number = :client_number
+		</sql>
+	</query>
+
+	<!--
+	<query>
+	<name>Client FX Margin</name>
+	<sql>
+	select a.INSTITUTION_NUMBER,CLIENT_NUMBER,a.PROCESS_ID||','||b.process_id as process_id,a.CLEARING_CHANNEL||','||c.clearing_Channel as CLEARING_CHANNEL, EFFECTIVE_DATE,count(CURRENCY) as currencies,MARGIN_PERCENT
+	from CIS_CLIENT_FX_MARGINS a, bwt_process_id b, bwt_clearing_channel c
+	where EFFECTIVE_DATE= (select max(EFFECTIVE_DATE) from CIS_CLIENT_FX_MARGINS where CLIENT_NUMBER=a.CLIENT_NUMBER and GROUP_NUMBER=a.GROUP_NUMBER and CLEARING_CHANNEL=a.CLEARING_CHANNEL and  INSTITUTION_NUMBER=a.INSTITUTION_NUMBER and PROCESS_ID=a.PROCESS_ID and CURRENCY=a.CURRENCY)
+	and a.PROCESS_ID=b.index_field(+) and a.INSTITUTION_NUMBER =b.INSTITUTION_NUMBER(+) and b.language(+)='USA'
+	and a.CLEARING_CHANNEL=c.index_field(+) and a.INSTITUTION_NUMBER =c.INSTITUTION_NUMBER(+) and C.language(+)='USA'
+	group by a.INSTITUTION_NUMBER,a.PROCESS_ID||','||b.process_id,MARGIN_PERCENT,EFFECTIVE_DATE,CLIENT_NUMBER,a.CLEARING_CHANNEL||','||c.clearing_Channel
+	</sql>
+	<columns>not:INSTITUTION_NUMBER  </columns>
+	<TransmittedConditionColumns></TransmittedConditionColumns>
+	<parent>Client Hierarchy</parent>
+	</query>
+	-->
+
+	<!--
+	<query>
+	
+	
+	<name>Group Account Types</name>
+	
+	<sql>
+	select distinct a.INSTITUTION_NUMBER,GROUP_NUMBER,ACCOUNT_TYPE_ID,ACCOUNT_TYPE_ID||','||type_id as account_type,SERVICE_CONTRACT_ID
+	from cas_client_account a, bwt_account_type_id b
+	where
+	a.account_type_id=b.index_field(+) and a.INSTITUTION_NUMBER =b.INSTITUTION_NUMBER(+) and b.language(+)='USA';
+	</sql>
+	
+	<columns>Account_Type </columns>
+	
+	<TransmittedConditionColumns>ACCOUNT_TYPE_ID</TransmittedConditionColumns>
+	
+	<parent>CLIENTS</parent>
+	
+	</query>
+	-->
+
+	<query name="Contracts" parent="ClientDetail">
+		<sql>		
+			select distinct service_contract_id, group_number from cis_client_links where INSTITUTION_NUMBER in (':institution_number') and client_number in (':client_number');
+		</sql>
+		<TransmittedConditionColumns>
+			INSTITUTION_NUMBER,group_number
+		</TransmittedConditionColumns>
+		<TransmittedColumns>
+			INSTITUTION_NUMBER,group_number
+		</TransmittedColumns>
+	</query>
+	
+	<query name="CLIENT LINKS" parent="Contracts">
+		<sql>
+			select
+			a.group_number,
+			a.CLIENT_NUMBER,
+			a.parent_client_number,
+			b.trade_name as client_name,
+			a.service_contract_id,
+			a.entity_id,
+			decode(a.client_level,'001','001 : Member Level','002','002 : Group Level', '003 : Sub-Group Level') as client_level,
+			a.CLIENT_BRANCH,
+			b.CLIENT_REGION,
+			a.effective_Date,
+			a.client_tariff,
+			a.posting_method,
+			a.settlement_method,
+			b.CLIENT_COUNTRY, 
+			a.CONTRACT_REFERENCE,
+			b.OUR_REFERENCE,
+			b.client_type,
+			b.record_type
+			from
+			cis_client_links a, cis_client_details b
+			where  a.client_number=b.client_number
+			and a.INSTITUTION_NUMBER=b.INSTITUTION_NUMBER
+			-- and ((a.client_number in (':client_number') and a.client_level in ('001')) or (a.client_level in ('002', '003')))
+			and a.group_number in (select distinct group_number from cis_client_links where client_number in (':client_number') and institution_number in (':institution_number'))
+			and a.institution_number in (':institution_number') 
+			order by group_number,client_level desc
+		</sql>
+		<KeyColumn>
+			CLIENT_NUMBER
+		</KeyColumn>
+		<ParentColumn>
+			parent_client_number
+		</ParentColumn>
+		<TransmittedConditionColumns>
+			INSTITUTION_NUMBER,group_number
+		</TransmittedConditionColumns>
+	</query>
+	
+<!--
+	<query  name="SVC_CLIENT_SERVICE" parent="CLIENTS Hierarchy">
+		<sql>
+			select RECORD_DATE,a.INSTITUTION_NUMBER,SERVICE_STATUS,EXPIRY_DATE,CLIENT_NUMBER,a.client_tariff||','||b.condition_set as CLIENT_TARIFF,
+			GROUP_NUMBER,a.SERVICE_ID||','||d.SERVICE_ID as SERVICE_ID ,RECORD_TYPE,
+			EFFECTIVE_DATE,a.SERVICE_CATEGORY||','||c.SERVICE_CATEGORY as SERVICE_CATEGORY
+			from SVC_CLIENT_SERVICE a, bwt_account_condition_set b, bwt_service_category c, bwt_services d
+			where
+			a.client_number in (':client_number') and a.institution_number in (':institution_number') and
+			a.client_tariff = b.index_field(+) and a.institution_number=b.institution_number(+) and b.language(+)='USA'
+			and a.SERVICE_CATEGORY = c.index_field(+) and a.institution_number=c.institution_number(+) and c.language(+)='USA'
+			and a.SERVICE_CATEGORY = c.index_field(+) and a.institution_number=c.institution_number(+) and c.language(+)='USA'
+			and a.SERVICE_id = d.index_field(+) and a.institution_number=d.institution_number(+) and d.language(+)='USA'
+		</sql>
+	</query>
+	<query name="Account Types" parent="CLIENTS Hierarchy">
+		<sql>
+			select distinct a.INSTITUTION_NUMBER,GROUP_NUMBER,ACCOUNT_TYPE_ID,ACCOUNT_TYPE_ID||','||type_id as account_type,SERVICE_CONTRACT_ID
+			from cas_client_account a, bwt_account_type_id b
+			where
+			a.client_number in (':client_number') and a.institution_number in (':institution_number') and
+			a.account_type_id=b.index_field(+) and a.INSTITUTION_NUMBER =b.INSTITUTION_NUMBER(+) and b.language(+)='USA';
+		</sql>
+		<TransmittedConditionColumns>
+			ACCOUNT_TYPE_ID
+		</TransmittedConditionColumns>
+	
+	</query>
+	-->
+
+	<query name="Client Accounts" parent="Contracts">
+		<sql>
+			select
+			a.group_number,
+			a.ACCT_NUMBER, 
+			nvl(PARENT_ACCOUNT_NUMBER,'null') as PARENT_ACCT_NUMBER, 
+			CLIENT_ACCOUNT_NAME, 
+			a.ACCOUNT_LEVEL,
+			a.client_number,
+			a.ACCOUNT_TYPE_ID,
+			decode(a.BILLING_LEVEL, '000','No','Yes') as  BILLING_LEVEL,
+			a.ACCT_CURRENCY,
+			BEGIN_BALANCE, CURRENT_BALANCE,
+			DATE_CYCLE_START||'-'||DATE_CYCLE_END as current_cycle,
+			e.POSTING_METHOD,
+			a.SERVICE_CONTRACT_ID, SETTLEMENT_NUMBER , LAST_SETTLEMENT_DATE, LAST_FEE_DATE,  LAST_STATEMENT_DATE,STATEMENT_TYPE,  STATEMENT_GENERATION
+			from
+			CAS_CLIENT_ACCOUNT a,
+			cas_cycle_book_balance d,
+			cis_client_links e
+		
+			where  
+			a.INSTITUTION_NUMBER =d.INSTITUTION_NUMBER(+) and a.acct_number=d.acct_number(+) and d.PROCESSING_STATUS(+) ='004'
+			and e.effective_Date = (select max (EFFECTIVE_DATE)from CIS_CLIENT_LINKS where INSTITUTION_NUMBER= e.INSTITUTION_NUMBER and CLIENT_NUMBER=e.CLIENT_NUMBER and GROUP_NUMBER=e.GROUP_NUMBER and SERVICE_CONTRACT_ID=e.SERVICE_CONTRACT_ID and CLIENT_LEVEL=e.CLIENT_LEVEL)
+			and e.client_number! = e.parent_client_number
+			and a.INSTITUTION_NUMBER = e.INSTITUTION_NUMBER
+			and a.client_number = e.client_number
+			and a.INSTITUTION_NUMBER in (':institution_number')
+			and a.group_number in (select group_number from cis_client_links where client_number in (':client_number') and institution_number in (':institution_number'))
+			and a.SERVICE_CONTRACT_ID = e.SERVICE_CONTRACT_ID
+			and a.group_number = e.group_number
+			order by a.group_number, a.ACCOUNT_TYPE_ID,a.acct_number,a.ACCT_CURRENCY;
+		</sql>
+		<KeyColumn>
+			ACCT_NUMBER
+		</KeyColumn>
+		<ParentColumn>
+			PARENT_ACCT_NUMBER
+		</ParentColumn>
+		<TransmittedConditionColumns>
+			settlement_number,client_number, account_number
+		</TransmittedConditionColumns>
+		<error>
+			((BILLING_LEVEL=001) or (BILLING_LEVEL = 'Yes'))
+		</error>
+	</query>
+
+</ROOT>

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ROOT>
+	<param key=":institution_number">	
+	</param>
+	<param key=":file_number">	
+	</param>
+	<query name="GL">
+		<sql>
+select
+gl.record_date,
+transaction_source,
+file_number, transaction_slip,
+ph.process_id||','||SUBSTR(ACQUIRER_REFERENCE,7,3) AS PHASE_ID,
+MERCHANT_NAME as instr_description ,MERCHANT_CITY as rule_id,
+INWARD_FEE_NUMBER as gl_acct_id,
+nvl(ch1.principal_cr,'(deleted)') as account_no,
+case when (gl.transaction_type = '901') then 'credit ->   '|| nvl(ch1.gl_account_name,'(deleted)') else 'debit  ->   '||ch1.gl_account_name end as action_on_gl_acct,
+OUTWARD_FEE_NUMBER as "counter GL ID",
+ACCOUNT_ADDRESS as "counter GL acct nr",
+nvl(ch2.gl_account_name,'(deleted)') as "counter GL acct name",
+gl.TRANSACTION_TYPE,
+gl.tran_amount_gr,
+gl.tran_currency,
+gl.local_amount_gr * decode(gl.transaction_type,'901',1,-1) as local_amount_gr ,
+gl.account_amount_gr,
+gl.local_currency,
+gl.acct_currency,RATE_FX_LOCAL_ACCT,
+gl.settlement_currency, SETTLEMENT_AMOUNT_GR,
+DR_CR_INDICATOR, substr(acquirer_reference,10,3) as transaction_class,
+substr(acquirer_reference,13,3)as transaction_category,
+substr(acquirer_reference,1,3) as gl_Acct_type_id,
+SUBSTR(ACQUIRER_REFERENCE,16,3)as instruction_sequence_number, gl.audit_trail
+from bw3.int_gl_transactions gl, bw3.cbr_chart_of_accounts ch1, bw3.cbr_chart_of_accounts ch2,bw3.bwt_PROCESS_ID ph
+where
+gl.institution_number in (':institution_number') and
+ch2.institution_number(+)=GL.institution_number and
+inward_fee_number = ch1.record_id_number(+) and
+outward_fee_number = ch2.record_id_number(+)
+and gl.institution_number = ch1.institution_number(+)
+and SUBSTR(ACQUIRER_REFERENCE,7,3)=ph.index_field(+) and gl.institution_number=ph.institution_number(+) and ph.language(+)='USA' 
+and gl.file_number in (':file_number')
+order by gl.transaction_slip,transaction_source,file_number,ph.process_id,transaction_slip , merchant_city,TRANSACTION_TYPE,SUBSTR(ACQUIRER_REFERENCE,16,3), merchant_name,local_Amount_gr;
+		</sql>
+	</query>
+</ROOT>

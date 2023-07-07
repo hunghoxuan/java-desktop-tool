@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ROOT>
+	<SQLQueryParam>
+		<Key>
+			:institution_number
+		</Key>
+		<Value>
+			
+		</Value>
+	</SQLQueryParam>
+	<SQLQueryDefinition>
+		<SQLQueryLabel>
+			INSTITUTIONS
+		</SQLQueryLabel>
+		<SQLQuery>
+			select institution_number, institution_name from sys_institution_licence where institution_number in (':institution_number') order by 1
+		</SQLQuery>
+		<TransmittedConditionColumns>
+			institution_number
+		</TransmittedConditionColumns>
+	</SQLQueryDefinition>
+	<SQLQueryDefinition suppressDisplayIfNoData="true">
+		<SQLQueryLabel>
+			GL RULE CHANNELS
+		</SQLQueryLabel>
+		<SQLQuery>
+			select a.INSTITUTION_NUMBER,TRANSACTION_SOURCE as CLEARING_CHANNEL,
+			TRANSACTION_SOURCE||','||b.CLEARING_CHANNEL ||decode(c.clearing_channel,null,'  !!! No GL Rules !!!' ) as CHANNEL
+			from
+			(select distinct INSTITUTION_NUMBER, TRANSACTION_SOURCE from cbr_channel_definition)a,
+			bwt_clearing_Channel b, (select distinct INSTITUTION_NUMBER, clearing_channel from CBR_ACCT_RULES_GROUP) c
+			where
+			a.TRANSACTION_SOURCE !='999'
+			and a.TRANSACTION_SOURCE=b.index_field(+) and a.INSTITUTION_NUMBER = b.INSTITUTION_NUMBER (+) and b.language(+)='USA'
+			and a.INSTITUTION_NUMBER = c.INSTITUTION_NUMBER (+)
+			and a.TRANSACTION_SOURCE  = c.clearing_channel(+)
+			union
+			select distinct a.INSTITUTION_NUMBER, a.clearing_channel,a.clearing_channel||','||b.CLEARING_CHANNEL||' !!! No Channel Definition !!!'  from CBR_ACCT_RULES_GROUP a, bwt_clearing_Channel b
+			where
+			(a.INSTITUTION_NUMBER, a.clearing_channel ) not in (select INSTITUTION_NUMBER, transaction_source from cbr_channel_definition )
+			and a.clearing_channel=b.index_field(+) and a.INSTITUTION_NUMBER = b.INSTITUTION_NUMBER (+) and b.language(+)='USA'
+			order by 1,2,3
+		</SQLQuery>
+		<SuperSQLQuery>
+			INSTITUTIONS
+		</SuperSQLQuery>
+		<TransmittedConditionColumns>
+			CLEARING_CHANNEL
+		</TransmittedConditionColumns>
+	</SQLQueryDefinition>
+	<SQLQueryDefinition suppressDisplayIfNoData="true">
+		<SQLQueryLabel>
+			GL RULES DETAILED
+		</SQLQueryLabel>
+		<SuperSQLQuery>
+			GL RULE CHANNELS
+		</SuperSQLQuery>
+		<SQLQuery>
+			select distinct
+			R.INSTITUTION_NUMBER,
+			R.TRANSACTION_CLASS,
+			R.TRANSACTION_CATEGORY,
+			R.CLEARING_CHANNEL,
+			r.record_id_number,
+			R.TRANSACTION_CLASS||','||c.transaction_class as TRANSACTION_CLASS_DESC,
+			R.TRANSACTION_CATEGORY||','||d.transaction_category as TRANSACTION_CAtegory_DESC,
+			r.TRANSACTION_TYPE||','||tr_typ.TRANSACTION_TYPE as TRANSACTION_TYPE,
+			r.SETTLEMENT_CURRENCY
+			from CBR_ACCT_RULES_GROUP R, bwt_transaction_class c,bwt_transaction_category d, bwt_transaction_Type tr_typ
+			where R.TRANSACTION_CATEGORY = d.index_field(+) and R.institution_number =d.institution_number(+) and d.language(+)='USA'
+			and R.TRANSACTION_CLASS = c.index_field(+) and R.institution_number =c.institution_number(+) and c.language(+)='USA'
+			and r.transaction_type = tr_typ.index_field(+) and r.institution_number=tr_typ.institution_number(+) and tr_typ.language(+)='USA'
+			order by TRANSACTION_CAtegory_DESC,TRANSACTION_TYPE
+		</SQLQuery>
+		<TransmittedConditionColumns>
+			record_id_number
+		</TransmittedConditionColumns>
+		<ResultColumns>
+			not: INSTITUTION_NUMBER,TRANSACTION_CLASS,TRANSACTION_CATEGORY,CLEARING_CHANNEL
+		</ResultColumns>
+	</SQLQueryDefinition>
+	<SQLQueryDefinition suppressDisplayIfNoData="true">
+		<SQLQueryLabel>
+			GL INSTRUCTIONS
+		</SQLQueryLabel>
+		<SuperSQLQuery>
+			GL RULES DETAILED
+		</SuperSQLQuery>
+		<SQLQuery>
+			select
+			i.INSTITUTION_NUMBER,
+			i.record_id_number,
+			proc.process_id ||', '||i.process_id as process_phase,
+			i.sequence_number,
+			amt_type.amount_type||','||i.amount_type as amount_type ,
+			curr_type.currency_type ||','|| i.currency_type as currency_type,
+			i.gl_dr_account||','||acct_dr.type_id  ||' '||  dr_ext.synth_ext_source ||'('|| i.dr_synth_extension_source||')'  as Acct_Type_Debit,
+			i.gl_cr_account||','|| acct_cr.type_id ||' '||  cr_ext.synth_ext_source ||'('|| i.cr_synth_extension_source||')' as Acct_Type_Credit,
+			i.transaction_narrative,
+			i.audit_trail
+			from  CBR_ACCT_RULES_INSTRUCTIONS i
+			,bwt_process_id proc, bwt_account_type_id acct_dr, bwt_account_type_id acct_cr,bwt_amount_type amt_type,bwt_currency_type curr_type, bwt_synth_ext_source dr_ext, bwt_synth_ext_source cr_ext
+			where i.process_id = proc.index_field(+) and i.institution_number=proc.institution_number(+) and proc.language(+)='USA'
+			and acct_cr.index_field	(+) = gl_cr_account  and i.institution_number=acct_cr.institution_number(+) and acct_cr.language(+)='USA'
+			and acct_dr.index_field(+) = gl_dr_account and i.institution_number=acct_dr.institution_number(+) and acct_dr.language(+)='USA'
+			and i.amount_type = amt_type.index_field(+) and i.institution_number=amt_type.institution_number(+) and amt_type.language(+)='USA'
+			and i.currency_type = curr_type.index_field(+) and i.institution_number=curr_type.institution_number(+) and curr_type.language(+)='USA'
+			and i.dr_synth_extension_source = dr_ext.index_field(+) and i.institution_number=dr_ext.institution_number(+) and dr_ext.language(+)='USA'
+			and i.cr_synth_extension_source = cr_ext.index_field(+) and i.institution_number=cr_ext.institution_number(+) and cr_ext.language(+)='USA'
+		</SQLQuery>
+		<TransmittedConditionColumns />
+		<ResultColumns>
+			not: INSTITUTION_NUMBER, record_id_number,
+		</ResultColumns>
+	</SQLQueryDefinition>
+	<SQLQueryDefinition suppressDisplayIfNoData="true">
+		<SQLQueryLabel>
+			GL ACCT TYPES
+		</SQLQueryLabel>
+		<SuperSQLQuery>
+			INSTITUTIONS
+		</SuperSQLQuery>
+		<SQLQuery>
+			select distinct a.INSTITUTION_NUMBER, a.GL_account_type_id, a.GL_account_type_id||','||b.type_id GL_acct_type_id
+			from cbr_chart_of_Accounts a, chT_account_type_id b
+			where b.language(+)='USA' and a.INSTITUTION_NUMBER = b.INSTITUTION_NUMBER(+) and a.GL_account_type_id=index_field(+)
+			order by 1,2
+		</SQLQuery>
+		<TransmittedConditionColumns>
+			GL_account_type_id
+		</TransmittedConditionColumns>
+		<ResultColumns>
+			not: INSTITUTION_NUMBER,GL_account_type_id
+		</ResultColumns>
+	</SQLQueryDefinition>
+	<SQLQueryDefinition suppressDisplayIfNoData="true">
+		<SQLQueryLabel>
+			GL ACCOUNT RECORDS
+		</SQLQueryLabel>
+		<SuperSQLQuery>
+			GL ACCT TYPES
+		</SuperSQLQuery>
+		<SQLQuery>
+			select
+			distinct
+			ch.institution_number,gl_account_type_id,
+			GL_ACCOUNT_NAME, decode(PRINCIPAL_DR, PRINCIPAL_CR,PRINCIPAL_DR,'DR: '||PRINCIPAL_DR||'-- CR: '||PRINCIPAL_CR)as PRINCIPAL_CR_DR,
+			account_type_id ||', '|| typ2.type_id as account_type,
+			ACCT_CURRENCY ||', '||acct_curr.swift_Code as ACCT_CURRENCY,
+			GL_ACCT_CURRENCY||', '||gl_acct_curr.swift_Code as GL_ACCT_CURRENCY,
+			GL_TRAN_CURRENCY,
+			SYNTH_EXTENSION,
+			ch.SYNTH_EXT_SOURCE||','||ext_src.SYNTH_EXT_SOURCE as SYNTH_EXT_SOURCE,
+			ch.CLEARING_CHANNEL ||','||chan.clearing_channel as clearing_channel ,
+			ch.TRANSACTION_TYPE ||',	'||tr_typ.transaction_Type as transaction_type,
+			record_id_number,
+			SERVICE_ID, SERVICE_CONTRACT_ID, CLIENT_TYPE, RESIDENCE_STATUS
+			,client_country, CLIENT_BRANCH,
+			EFFECTIVE_DATE,
+			area_of_event||','||area_of_Action as area_of_event,
+			GL_TRANSACTION_LEVEL
+			--, audit_trail, client_country, client_branch,
+			--,suppress_from_file
+			from CBR_CHART_OF_ACCOUNTS ch, bwt_account_type_id typ,bwt_account_type_id typ2, bwt_clearing_channel chan, bwt_transaction_type tr_typ, bwt_synth_ext_source ext_src, bwt_area_of_Action aoe, bwt_currency acct_curr,bwt_currency Gl_acct_curr
+			where
+			ch.SYNTH_EXT_SOURCE=ext_src.index_Field(+) and ext_src.institution_number(+) = ch.institution_number and ext_src.language(+)='USA' and
+			typ.index_field(+) = gl_account_type_id and typ.institution_number(+) = ch.institution_number and typ.language(+)='USA' and
+			typ2.index_field(+) = account_type_id and typ2.institution_number(+) = ch.institution_number and typ2.language(+)='USA' and
+			tr_typ.index_field(+) = ch.transaction_type and tr_typ.institution_number(+) = ch.institution_number and tr_typ.language(+)='USA' and
+			chan.index_field(+) = ch.clearing_channel and ch.institution_number=chan.institution_number(+) and chan.language(+)='USA'
+			and aoe.index_field(+) = ch.area_of_event and ch.institution_number=aoe.institution_number(+) and aoe.language(+)='USA'
+			and acct_curr.iso_code(+) = ch.acct_currency  and ch.institution_number=acct_curr.institution_number(+) and acct_curr.language(+)='USA'
+			and Gl_acct_curr.iso_code(+) = ch.gl_acct_currency and ch.institution_number=Gl_acct_curr.institution_number(+) and Gl_acct_curr.language(+)='USA'
+			and not (ch.service_contract_id != '111' and ch.gl_account_type_id = '105')
+			and ch.EFFECTIVE_DATE = (
+			select max(EFFECTIVE_DATE)
+			from cbr_chart_of_accounts
+			where
+			GL_ACCOUNT_TYPE_ID  = 	ch.GL_ACCOUNT_TYPE_ID
+			and GL_ACCT_CURRENCY    = ch.GL_ACCT_CURRENCY
+			and INSTITUTION_NUMBER  = ch.INSTITUTION_NUMBER
+			and SYNTH_EXTENSION	    = ch.SYNTH_EXTENSION
+			and ACCT_CURRENCY 	    = ch.ACCT_CURRENCY
+			and ACCOUNT_TYPE_ID	    = ch.ACCOUNT_TYPE_ID
+			and SERVICE_ID		    = ch.SERVICE_ID
+			and SERVICE_CONTRACT_ID = ch.SERVICE_CONTRACT_ID
+			and CLIENT_TYPE		    = ch.CLIENT_TYPE
+			and GL_TRAN_CURRENCY    = ch.GL_TRAN_CURRENCY
+			and nvl(CLIENT_COUNTRY,'000') = nvl(ch.CLIENT_COUNTRY,'000')
+			and nvl(CLIENT_BRANCH,'000')  = nvl(ch.CLIENT_BRANCH,'000')
+			)
+			order by
+			SYNTH_EXT_source,SYNTH_EXTENSION,ACCOUNT_TYPE,PRINCIPAL_CR_DR,GL_ACCT_CURRENCY,ACCT_CURRENCY,GL_ACCT_CURRENCY,SERVICE_CONTRACT_ID,service_id
+		</SQLQuery>
+		<TransmittedConditionColumns>
+			record_id_number
+		</TransmittedConditionColumns>
+		<ResultColumns>
+			not: INSTITUTION_NUMBER,GL_account_type_id
+		</ResultColumns>
+	</SQLQueryDefinition>
+</ROOT>

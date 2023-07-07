@@ -1,0 +1,869 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<ROOT>
+    <param key=":institution_number">	
+	</param>
+    <SQLQueryDefinition>
+         <SQLQueryLabel>INSTITUTIONS</SQLQueryLabel>
+        <SQLQuery> 
+			select institution_number, institution_name, 'Hello Nga!!' as Greeting from sys_institution_licence where institution_number in (':institution_number') order by 1
+		</SQLQuery>
+        <TransmittedConditionColumns>institution_number </TransmittedConditionColumns>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>CONTRACT TYPE</SQLQueryLabel>
+        <SQLQuery> 
+			select	distinct a.CONTRACT_TYPE||','||b.BUSINESS_TYPE as BUSINESS_TYPE,a.CONTRACT_TYPE as CONTRACT_TYPE,a.INSTITUTION_NUMBER
+			from cbr_service_contract a, BWT_CLIENT_BUSINESS_TYPE b
+			where a.CONTRACT_TYPE=b.index_field(+) and b.language(+)='USA' and a.institution_number=b.institution_number(+) order by BUSINESS_TYPE
+		</SQLQuery>
+        <ResultColumns>BUSINESS_TYPE</ResultColumns>
+        <TransmittedConditionColumns>CONTRACT_TYPE</TransmittedConditionColumns>
+        <SuperSQLQuery>INSTITUTIONS</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>CONTRACTS</SQLQueryLabel>
+        <SQLQuery> 
+			select a.INSTITUTION_NUMBER, a.CONTRACT_TYPE, SERVICE_CONTRACT_ID||','||c.service_contract as service_contract, a.SERVICE_CONTRACT_ID
+			from cbr_service_contract a, bwt_service_contract_id c
+			where a.SERVICE_CONTRACT_ID = c.index_field(+) and c.language(+) = 'USA' and a.INSTITUTION_NUMBER = c.INSTITUTION_NUMBER 
+			order by c.service_contract
+		</SQLQuery>
+        <ResultColumns>SERVICE_CONTRACT</ResultColumns>
+        <TransmittedConditionColumns>SERVICE_CONTRACT_ID</TransmittedConditionColumns>
+        <SuperSQLQuery>CONTRACT TYPE</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>TRANSACTION CHARGES</SQLQueryLabel>
+        <SQLQuery> 
+			select
+			a.institution_number,
+			a.service_contract_id,a.TR_TYPE as fee_tran_type,a.charge_type,a.fee_category,a.client_tariff,
+			a.client_tariff||','||j.condition_set as client_tariff_desc,
+			fee_class,
+			a.TR_TYPE||','||b.TRANSACTION_TYPE ||' synth ext: '||b.SYNTH_EXT as fee_transaction_type,
+			b.DESTINATION_SIGN DEST_SIGN
+			,a.charge_type||','||e.charge_type as charge_type_desc,
+			a.fee_category||','||d.TARGET_CLASS as fee_category_desc
+			,charge_records
+		from
+		(
+		select count(*) as charge_records,
+			aaa.institution_number,
+			aaa.service_contract_id,
+			aaa.client_tariff,
+			decode(aaa.PL_IND_OUTWARD,0,'Inward Chg','Outward Chg') as fee_class,
+			decode(aaa.PL_IND_OUTWARD,0,aaa.PL_IND_inWARD,aaa.PL_IND_OUTWARD) as tr_type,
+			charge_type,
+			fee_category
+		from
+			CBR_TRANSACTION_CHARGES aaa
+		where client_number ='00000000' and institution_number !='00000015' and
+			aaa.effective_date = (select max(effective_date) from CBR_TRANSACTION_CHARGES where aaa.SERVICE_CONTRACT_ID = SERVICE_CONTRACT_ID and CHARGE_TYPE=aaa.CHARGE_TYPE and CLIENT_NUMBER=aaa.CLIENT_NUMBER and INSTITUTION_NUMBER = aaa.INSTITUTION_NUMBER and CLIENT_TARIFF=aaa.CLIENT_TARIFF and CHARGE_TIER_LEVEL = aaa.CHARGE_TIER_LEVEL and TRAN_CURRENCY=aaa.TRAN_CURRENCY and SERVICE_ID=aaa.SERVICE_ID and AREA_OF_EVENT=aaa.AREA_OF_EVENT and TRANSACTION_TYPE=aaa.TRANSACTION_TYPE and CAPTURE_METHOD=aaa.CAPTURE_METHOD and SERVICE_TYPE=aaa.SERVICE_TYPE)
+		group by institution_number,service_contract_id,client_tariff ,decode(aaa.PL_IND_OUTWARD,0,aaa.PL_IND_inWARD,aaa.PL_IND_OUTWARD),charge_type,fee_category,decode(aaa.PL_IND_OUTWARD,0,'Inward Chg','Outward Chg')
+		)a
+			, BWT_TRANSACTION_TYPE b
+			, BWT_FEE_CATEGORY d
+			, BWT_CHARGE_TYPE e
+			, BWT_ACCOUNT_CONDITION_SET j
+		where
+			 b.index_field(+) = a.tr_Type and a.institution_number=b.institution_number(+) and b.language(+)='USA'
+			and a.fee_category=d.index_field(+) and a.institution_number=d.institution_number(+) and d.language(+)='USA'
+			and a.charge_type=e.index_field(+) and a.institution_number=e.institution_number(+) and e.language(+)='USA'
+			and a.client_tariff = j.index_field(+) and a.institution_number=j.institution_number(+) and j.language(+)='USA'
+			and a.institution_number = ':institution_number'
+		 order by client_tariff,fee_class,FEE_TRANSACTION_TYPE,charge_type_desc,fee_category_desc
+	</SQLQuery>
+        <ResultColumns>not: client_tariff, SERVICE_CONTRACT_ID, INSTITUTION_NUMBER,FEE_TRAN_TYPE,CHARGE_TYPE,FEE_CATEGORY</ResultColumns>
+        <TransmittedConditionColumns>client_tariff,FEE_TRAN_TYPE,CHARGE_TYPE,FEE_CATEGORY</TransmittedConditionColumns>
+        <SuperSQLQuery>CONTRACTS</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition>
+        <SQLQueryLabel>TRANSACTION CHARGES DETAILED</SQLQueryLabel>
+        <SQLQuery> 
+	select
+	a.institution_number,
+	a.service_contract_id,
+	a.client_tariff,
+	a.TR_TYPE as fee_tran_type,
+	a.charge_type,
+	a.fee_category,
+	a.service_id||','||i.service_id as service_id
+	, o.swift_code as tran_curr
+	, a.transaction_Type||','||bb.transaction_Type as transaction_Type
+	, a.fee_calc
+	, p.swift_code as fee_currency
+	, VALUE_DAY_REFERENCE||','||d.reference || ' '||e.sign  || ' '||NUMBER_OF_DAYS as value_Date
+	, a.POSTING_METHOD||','||f.posting_method as POSTING_METHOD
+	, effective_date
+	, a.record_id_number
+	, a.SOURCE_TRAN_TYPE ||','||c.transaction_type as SOURCE_TRAN_TYPE
+	, a.CHARGE_TIER_LEVEL ||','|| k.CHARGE_TIER_LEVEL as TIER_LEVEL
+	, a.SERVICE_TYPE||','||n.service_type as service_type
+	, a.CAPTURE_METHOD||','||l.CAPTURE_METHOD as CAPTURE_METHOD
+	, a.AREA_OF_EVENT ||','||m.AREA_OF_ACTION as AREA_OF_EVENT
+from
+(
+select distinct
+	aaa.institution_number,
+	aaa.service_contract_id,
+	aaa.service_id,
+	aaa.client_tariff,
+	decode(aaa.PL_IND_OUTWARD,0,aaa.PL_IND_inWARD,aaa.PL_IND_OUTWARD) as tr_type,
+	aaa.transaction_type,tran_currency,
+	charge_type,fee_currency,
+	FEE_PERCENT||'% + '||FEE_BASE as fee_calc,
+	VALUE_DAY_REFERENCE,MATH_OPERATOR,NUMBER_OF_DAYS,  SOURCE_TRAN_TYPE,  POSTING_METHOD,
+	fee_category,effective_date,CHARGE_TIER_LEVEL, SERVICE_TYPE,CAPTURE_METHOD,AREA_OF_EVENT,RECORD_ID_NUMBER
+from
+	CBR_TRANSACTION_CHARGES aaa
+where client_number ='00000000' and institution_number !='00000015' and 
+    aaa.effective_date = (select max(effective_date) from CBR_TRANSACTION_CHARGES where aaa.SERVICE_CONTRACT_ID = SERVICE_CONTRACT_ID and CHARGE_TYPE=aaa.CHARGE_TYPE and CLIENT_NUMBER=aaa.CLIENT_NUMBER and INSTITUTION_NUMBER = aaa.INSTITUTION_NUMBER and CLIENT_TARIFF=aaa.CLIENT_TARIFF and CHARGE_TIER_LEVEL = aaa.CHARGE_TIER_LEVEL and TRAN_CURRENCY=aaa.TRAN_CURRENCY and SERVICE_ID=aaa.SERVICE_ID and AREA_OF_EVENT=aaa.AREA_OF_EVENT and TRANSACTION_TYPE=aaa.TRANSACTION_TYPE and CAPTURE_METHOD=aaa.CAPTURE_METHOD and SERVICE_TYPE=aaa.SERVICE_TYPE)
+)a
+	, BWT_transaction_Type bb
+	, BWT_transaction_Type c
+	, BWT_PERIODIC_REFERENCE d
+	, BWT_SIGN_OPERATORS e
+	, BWT_POSTING_METHOD f
+	, BWT_SERVICES i
+	, BWT_CHARGE_TIER_LEVEL k
+	, BWT_CAPTURE_METHOD l
+	, BWT_AREA_OF_ACTION m
+	, BWT_SERVICE_TYPE n
+	, BWT_CURRENCY o
+	, BWT_CURRENCY p
+where
+	bb.index_field(+) = a.transaction_type and a.institution_number=bb.institution_number(+) and bb.language(+)='USA'
+	and c.index_field(+) = a.SOURCE_TRAN_TYPE and a.institution_number=c.institution_number(+) and c.language(+)='USA'
+	and a.service_id = i.index_field(+) and a.institution_number=i.institution_number(+) and i.language(+)='USA'
+	and a.CHARGE_TIER_LEVEL = k.index_field(+) and a.institution_number=k.institution_number(+) and k.language(+)='USA'
+ 	and a.CAPTURE_METHOD = l.index_field(+) and a.institution_number=l.institution_number(+) and l.language(+)='USA'
+ 	and a.AREA_OF_EVENT = m.index_field(+) and a.institution_number=m.institution_number(+) and m.language(+)='USA'
+	and a.SERVICE_TYPE = n.index_field(+) and a.institution_number=n.institution_number(+) and n.language(+)='USA'
+	and a.TRAN_CURRENCY = o.ISO_CODE(+) and a.institution_number=o.institution_number(+) and o.language(+)='USA'
+	and a.FEE_CURRENCY = p.ISO_CODE(+) and a.institution_number=p.institution_number(+) and p.language(+)='USA'
+	and a.VALUE_DAY_REFERENCE = d.index_field(+) and a.institution_number=d.institution_number(+) and d.language(+)='USA'
+	and a.MATH_OPERATOR = e.index_field(+) and a.institution_number=e.institution_number(+) and e.language(+)='USA'
+	and a.POSTING_METHOD = f.index_field(+) and a.institution_number=f.institution_number(+) and f.language(+)='USA'
+	and a.institution_number = ':institution_number'
+ order by SERVICE_ID,TRAN_CURR,TRANSACTION_TYPE	
+	</SQLQuery>
+        <ResultColumns>not: CLIENT_TARIFF,SERVICE_CONTRACT_ID, INSTITUTION_NUMBER,FEE_TRAN_TYPE,CHARGE_TYPE,FEE_CATEGORY</ResultColumns>
+        <TransmittedConditionColumns/>
+        <SuperSQLQuery>TRANSACTION CHARGES</SuperSQLQuery>
+    </SQLQueryDefinition>
+     
+
+    <SQLQueryDefinition>
+        <SQLQueryLabel>SERVICES PER CARD ORGANIZATION</SQLQueryLabel>
+        <SQLQuery> 
+select
+distinct
+a.INSTITUTION_NUMBER,a.SERVICE_CONTRACT_ID,e.card_organization, e.card_organization||','||g.card_organization as card_org
+from cbr_assigned_services a, cbr_service_definition e, bwt_CARD_ORGANIZATION g where
+e.CARD_ORGANIZATION=g.index_field(+) and e.INSTITUTION_NUMBER=g.INSTITUTION_NUMBER(+) and g.language(+)='USA'
+and a.service_id = e.service_id and a.service_category=e.service_category and a.INSTITUTION_NUMBER=e.INSTITUTION_NUMBER
+and e.effective_date = (select max(effective_date) from cbr_service_definition where e.SERVICE_ID=SERVICE_ID and e.CARD_BRAND=CARD_BRAND and e.CARD_ORGANIZATION=CARD_ORGANIZATION and e.INSTITUTION_NUMBER=INSTITUTION_NUMBER)
+order by card_organization
+    </SQLQuery>
+        <ResultColumns>CARD_ORG</ResultColumns>
+        <TransmittedConditionColumns>CARD_ORGANIZATION</TransmittedConditionColumns>
+        <SuperSQLQuery>CONTRACTS</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>SERVICES</SQLQueryLabel>
+        <SQLQuery> 
+select a.INSTITUTION_NUMBER,a.SERVICE_CONTRACT_ID,a.SERVICE_ID,
+a.SERVICE_ID||','||c.service_id as service, e.card_brand||','||f.card_brand as card_brand, e.card_organization 
+,a.SERVICE_CATEGORY||','||d.business_type as SERVICE_CATEGORY
+,a.SERVICE_AVAILABILITY||','||h.SERVICE_AVAILABILITY as SERVICE_AVAILABILITY, a.SERVICE_BENEFICIARY||','||i.SERVICE_BENEFICIARY as SERVICE_BENEFICIARY
+,e.SERVICE_TYPE||','||j.SERVICE_TYPE as SERVICE_TYPE
+,e.PLASTIC_TYPE||', '||k.plastic_type as plastic_type
+,e.area_of_event||','||l.area_of_action as area_of_event
+,e.product_id||','||m.product_id as product_id
+from cbr_assigned_services a, cbr_service_definition e,
+bwt_service_contract_id b, bwt_services c, bwt_CLIENT_BUSINESS_TYPE d, bwt_card_brand f,
+BWT_SERVICE_AVAILABILITY h, BWT_SERVICE_BENEFICIARY i
+,BWT_SERVICE_TYPE j, BWT_CARD_PLASTIC_TYPE k, bwt_area_of_action l, BWt_product_id m
+where
+a.SERVICE_CONTRACT_ID=b.INDEX_FIELD(+) and a.INSTITUTION_NUMBER=b.INSTITUTION_NUMBER(+) and b.language(+)='USA'
+and a.SERVICE_ID=c.INDEX_FIELD(+) and a.INSTITUTION_NUMBER=c.INSTITUTION_NUMBER(+) and c.language(+)='USA'
+and a.SERVICE_category=d.index_field(+) and a.INSTITUTION_NUMBER=d.INSTITUTION_NUMBER(+) and d.language(+)='USA'
+and e.card_brand=f.index_field(+) and e.INSTITUTION_NUMBER=f.INSTITUTION_NUMBER(+) and f.language(+)='USA'
+and a.SERVICE_AVAILABILITY=h.index_field(+) and a.INSTITUTION_NUMBER=h.INSTITUTION_NUMBER(+) and h.language(+)='USA'
+and a.SERVICE_BENEFICIARY=i.index_field(+) and a.INSTITUTION_NUMBER=i.INSTITUTION_NUMBER(+) and i.language(+)='USA'
+and a.service_id = e.service_id and a.service_category=e.service_category and a.INSTITUTION_NUMBER=e.INSTITUTION_NUMBER
+and e.SERVICE_TYPE=j.index_field(+) and e.INSTITUTION_NUMBER=j.INSTITUTION_NUMBER(+) and j.language(+)='USA'
+and e.PLASTIC_TYPE=k.index_field(+) and e.INSTITUTION_NUMBER=k.INSTITUTION_NUMBER(+) and k.language(+)='USA'
+and e.area_of_event=l.index_field(+) and e.INSTITUTION_NUMBER=l.INSTITUTION_NUMBER(+) and l.language(+)='USA'
+and e.product_id=m.index_field(+) and e.INSTITUTION_NUMBER=m.INSTITUTION_NUMBER(+) and m.language(+)='USA'
+and e.effective_date = (select max(effective_date) from cbr_service_definition where e.SERVICE_ID=SERVICE_ID and e.CARD_BRAND=CARD_BRAND and e.CARD_ORGANIZATION=CARD_ORGANIZATION and e.INSTITUTION_NUMBER=INSTITUTION_NUMBER)
+and a.institution_number = ':institution_number'
+order by a.service_id;
+    </SQLQuery>
+        <ResultColumns>not: INSTITUTION_NUMBER,SERVICE_CONTRACT_ID,SERVICE_ID,card_organization</ResultColumns>
+        <TransmittedConditionColumns>SERVICE_ID</TransmittedConditionColumns>
+        <SuperSQLQuery>SERVICES PER CARD ORGANIZATION</SuperSQLQuery>
+    </SQLQueryDefinition>
+	
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>SERVICE FEES</SQLQueryLabel>
+        <SQLQuery> 
+select
+		aa.institution_number,
+		aa.service_contract_id,
+		service_id, 
+		aa.CLIENT_FEE_ID as transaction_type,
+		FEE_CURR.swift_code as fee_curr,
+		aa.CONDITION_SET||','||j.condition_set as client_tariff,
+		aa.CLIENT_FEE_ID||','||b.transaction_type as Fee_tran_type,
+		TRIGGER_SOURCE||','||g.REFERENCE_OBJ as trigger_,
+		trim(l.SIGN ||' '||decode(TRIGGER_OPERATOR,'000','',TRIGGER_VALUE_HIGH)) as trigger_op,
+		aa.charge_type||','||e.charge_Type as charge_Type,
+		aa.SETTLEMENT_METHOD||','||c.SETTLEMENT_METHOD as SETTLEMENT_METHOD,
+		TRIGGER_PERIOD||','||k.cycle as Frequency ,
+		aa.OBJECT_LEVEL||','||m.OBJECT_LEVEL as OBJECT_LEVEL,
+		FEE_PERCENT||'% + '||FEE_BASE as fee_calc
+		, RECORD_ID_NUMBER, EFFECTIVE_DATE,TIER_LEVEL 
+	from
+	cbr_client_fees aa
+	, BWT_TRANSACTION_TYPE b
+	, BWT_SETTLEMENT_METHOD c
+	, BWT_FEE_CATEGORY d
+	, BWT_CHARGE_TYPE e
+	, BWT_REFERENCE_OBJECT g
+	, BWT_ACCOUNT_CONDITION_SET j
+	, bwt_periodic_cycles k
+	, BWT_SIGN_OPERATORS l
+	, BWT_OBJECT_LEVEL m
+	, BWT_currency fee_curr
+where
+	b.index_field(+) = aa.CLIENT_FEE_ID and aa.institution_number=b.institution_number(+) and b.language(+)='USA'
+	and aa.fee_category=d.index_field(+) and aa.institution_number=d.institution_number(+) and d.language(+)='USA'
+	and aa.charge_type=e.index_field(+) and aa.institution_number=e.institution_number(+) and e.language(+)='USA'
+	and aa.trigger_source = g.index_field(+) and aa.institution_number=g.institution_number(+) and g.language(+)='USA'
+	and aa.CONDITION_SET = j.index_field(+) and aa.institution_number=j.institution_number(+) and j.language(+)='USA'
+	and aa.SETTLEMENT_METHOD = c.index_field(+) and aa.institution_number=c.institution_number(+) and c.language(+)='USA'
+    and aa.TRIGGER_PERIOD = k.index_field(+) and aa.institution_number=k.institution_number(+) and k.language(+)='USA'
+    and aa.TRIGGER_OPERATOR = l.index_field(+) and aa.institution_number=l.institution_number(+) and l.language(+)='USA'
+    and aa.OBJECT_LEVEL = m.index_field(+) and aa.institution_number=m.institution_number(+) and m.language(+)='USA'
+    and aa.fee_currency = fee_curr.iso_code(+) and aa.institution_number=fee_curr.institution_number(+) and fee_curr.language(+)='USA'
+	and	aa.FEE_CATEGORY='002'
+	and aa.EFFECTIVE_DATE = (select max(effective_date) from cbr_client_fees where aa.INSTITUTION_NUMBER = INSTITUTION_NUMBER and aa.TRIGGER_RULE_ID = TRIGGER_RULE_ID and aa.SERVICE_CONTRACT_ID = SERVICE_CONTRACT_ID
+	and aa.ACCOUNT_TYPE_ID = ACCOUNT_TYPE_ID and ACCT_CURRENCY=aa.ACCT_CURRENCY and SERVICE_ID=aa.SERVICE_ID and aa.CONDITION_SET=CONDITION_SET and aa.SETTLEMENT_METHOD=SETTLEMENT_METHOD and aa.CLIENT_FEE_ID=CLIENT_FEE_ID and TIER_LEVEL=aa.TIER_LEVEL)
+    and aa.institution_number = ':institution_number'
+	order by Fee_tran_type
+	</SQLQuery>
+        <ResultColumns>not: INSTITUTION_NUMBER,SERVICE_CONTRACT_ID,transaction_type</ResultColumns>
+        <TransmittedConditionColumns>transaction_type</TransmittedConditionColumns>
+        <SuperSQLQuery>SERVICES</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>CONTRACT ACCT TYPE</SQLQueryLabel>
+        <SQLQuery> 
+select INSTITUTION_NUMBER,SERVICE_CONTRACT_ID,ACCOUNT_TYPE_ID,ACCOUNT_TYPE,count(*)as CURRencies,BILLING_CYCLE,CREATE_ON_DEMAND,STATEMENT_TYPE,GENERATE_PAYMENT_HISTORY,BALANCE_RESET_MODE,GENERATE_VALUE_BALANCE,INTEREST_ACCRUAL_CYCLE,INTEREST_CAP_CYCLE,POST_INTEREST_TO_SOURCE
+from(
+	select
+	a.INSTITUTION_NUMBER,
+	a.SERVICE_CONTRACT_ID,
+	a.ACCOUNT_TYPE_ID,
+	b.type_id||', '||ACCOUNT_TYPE_ID as ACCOUNT_TYPE,
+	a.BILLING_CYCLE||','||CYCLE as BILLING_CYCLE,
+	a.CREATE_ON_DEMAND||','||e.DESCRIPTION as CREATE_ON_DEMAND,
+	a.STATEMENT_TYPE||','||f.STATEMENT_TYPE as STATEMENT_TYPE,
+	GENERATE_PAYMENT_HISTORY,
+	BALANCE_RESET_MODE,GENERATE_VALUE_BALANCE,INTEREST_ACCRUAL_CYCLE, INTEREST_CAP_CYCLE, POST_INTEREST_TO_SOURCE
+from cbr_contract_acct_Types a, bwt_Account_type_id b, BWT_PERIODIC_CYCLES d, BWT_ACCOUNT_CREATION e, BWT_STATEMENT_TYPE f
+where
+ a.account_Type_id=b.index_field(+) and a.institution_number=b.institution_number(+) and  b.language(+)='USA'
+ and a.BILLING_CYCLE=d.index_field(+) and a.institution_number=d.institution_number(+) and  d.language(+)='USA'
+ and a.CREATE_ON_DEMAND=e.index_field(+) and a.institution_number=e.institution_number(+) and  e.language(+)='USA'
+ and a.STATEMENT_TYPE=f.index_field(+) and a.institution_number=f.institution_number(+) and f.language(+)='USA'
+ and a.institution_number = ':institution_number'
+)
+group by INSTITUTION_NUMBER,SERVICE_CONTRACT_ID,ACCOUNT_TYPE_ID,ACCOUNT_TYPE,BILLING_CYCLE,CREATE_ON_DEMAND,STATEMENT_TYPE,GENERATE_PAYMENT_HISTORY,BALANCE_RESET_MODE,GENERATE_VALUE_BALANCE,INTEREST_ACCRUAL_CYCLE,INTEREST_CAP_CYCLE,POST_INTEREST_TO_SOURCE
+order by 1,2,4;
+    </SQLQuery>
+        <TransmittedConditionColumns>ACCOUNT_TYPE_ID</TransmittedConditionColumns>
+        <ResultColumns>not: INSTITUTION_NUMBER,SERVICE_CONTRACT_ID,ACCOUNT_TYPE_ID</ResultColumns>
+        <SuperSQLQuery>CONTRACTS</SuperSQLQuery>
+    </SQLQueryDefinition>
+     
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>SETTLEMENT SCHEMES</SQLQueryLabel>
+        <SuperSQLQuery>CONTRACT ACCT TYPE</SuperSQLQuery>
+        <SQLQuery> 				
+select
+a.institution_number,
+a.SERVICE_CONTRACT_ID,
+a.ACCOUNT_TYPE_ID,
+a.SETTLEMENT_CATEGORY||','||b.settlement_category as settl_category,
+a.settlement_method||','||j.settlement_method as settlement_method,
+a.TRANSACTION_TYPE||','||h.transaction_type as settl_tran_type,
+a.CLEARING_CHANNEL||','||g.clearing_channel as outw_channel,
+count(*) as acct_currencies,
+a.TRIGGER_SOURCE||','||f.reference_obj|| decode (a.trigger_rule_id,'000','', ' + rule_id '||a.trigger_rule_id||','||n.rule_id) as trigger_
+,f.OBJECT_TYPE as trigger_type,
+trigger_period||','||o.cycle as trigger_period,
+l_1.sign , a.TRIGGER_VALUE,
+SETTLEMENT_PERCENT,
+PERIOD_REFERENCE||','||m.REFERENCE as PERIOD_REFERENCE ,
+l_2.sign as ref_sign,FIXED_PERIOD,POSTING_PERIOD_REFERENCE,POSTING_REFERENCE_OPERATOR,POSTING_FIXED_PERIOD,
+DEST_ACCT_NUMBER,DEST_SERVICE_CONTRACT_ID,
+DEST_ACCOUNT_TYPE_ID||','||i.type_id as DEST_ACCOUNT_TYPE_ID
+from
+ CBR_SETTLEMENT_SCHEMES a,
+ BWT_SETTLEMENT_CATEGORY b,
+ BWT_REFERENCE_OBJECT f,
+ BWT_clearing_Channel g,
+ BWT_transaction_type h,
+ BWT_account_Type_id i,
+ BWT_settlement_method j,
+ BWT_SIGN_OPERATORS l_1,
+ BWT_SIGN_OPERATORS l_2,
+ BWT_PERIODIC_REFERENCE m,
+ BWT_RULE_ID n,
+ BWT_PERIODIC_CYCLES o
+where
+a.settlement_category =b.index_field(+) and a.institution_number=b.institution_number(+) and b.language(+)='USA'
+and a.trigger_source = f.index_field(+) and a.institution_number=f.institution_number(+) and f.language(+)='USA'
+and a.clearing_channel = g.index_field(+)and a.institution_number=g.institution_number(+) and g.language(+)='USA'
+and a.transaction_type =h.index_field(+) and a.institution_number=h.institution_number(+) and h.language(+)='USA'
+and a.dest_account_type_id = i.index_field(+)and a.institution_number=i.institution_number(+) and i.language(+)='USA'
+and a.settlement_method=j.index_field(+) and a.institution_number=j.institution_number(+) and j.language(+)='USA'
+and l_1.INDEX_FIELD(+)= a.TRIGGER_OPERATOR and  a.institution_number=l_1.institution_number(+) and l_1.language(+)='USA'
+and l_2.INDEX_FIELD(+)= a.REFERENCE_OPERATOR and  a.institution_number=l_2.institution_number(+) and l_2.language(+)='USA'
+and m.index_field(+) = a.PERIOD_REFERENCE and  a.institution_number=m.institution_number(+) and m.language(+)='USA'
+and n.index_field(+) = a.trigger_rule_id and  a.institution_number=n.institution_number(+) and n.language(+)='USA'
+and o.index_field(+) = a.trigger_PERIOD and  a.institution_number=o.institution_number(+) and o.language(+)='USA'
+and a.institution_number = ':institution_number'
+group by
+a.institution_number,
+a.SERVICE_CONTRACT_ID,
+a.ACCOUNT_TYPE_ID,
+a.SETTLEMENT_CATEGORY||','||b.settlement_category ,
+a.settlement_method||','||j.settlement_method ,
+a.TRANSACTION_TYPE||','||h.transaction_type ,
+a.CLEARING_CHANNEL||','||g.clearing_channel ,
+a.TRIGGER_SOURCE||','||f.reference_obj|| decode (a.trigger_rule_id,'000','', ' + rule_id '||a.trigger_rule_id||','||n.rule_id)
+,f.OBJECT_TYPE ,
+trigger_period||','||o.cycle ,
+l_1.sign , a.TRIGGER_VALUE,
+SETTLEMENT_PERCENT,
+PERIOD_REFERENCE||','||m.REFERENCE ,
+l_2.sign,FIXED_PERIOD,POSTING_PERIOD_REFERENCE,POSTING_REFERENCE_OPERATOR,POSTING_FIXED_PERIOD,
+DEST_ACCT_NUMBER,DEST_SERVICE_CONTRACT_ID,
+DEST_ACCOUNT_TYPE_ID||','||i.type_id
+order by settlement_method,settl_Category,settl_tran_Type;
+    </SQLQuery>
+        <TransmittedConditionColumns/>
+        <ResultColumns>not: ACCOUNT_TYPE_ID,SERVICE_CONTRACT_ID,institution_number</ResultColumns>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>ACCOUNT FEES</SQLQueryLabel>
+        <SQLQuery> 
+select
+		aa.institution_number,
+		aa.service_contract_id,Acct_currency,
+		account_type_id, 
+		aa.CONDITION_SET||','||j.condition_set as client_tariff,
+		acct_curr.swift_code as Account_curr, 
+		FEE_TRANSACTION_TYPE||','||b.transaction_type as  fee_tran_type,
+		FEE_CURR.swift_code as fee_curr,
+		TRIGGER_PERIOD||','||k.cycle as Frequency , 
+		aa.OBJECT_LEVEL||','||m.OBJECT_LEVEL as OBJECT_LEVEL,
+		FEE_PERCENT||'% + '||FEE_BASE as fee_calc,
+		TRIGGER_SOURCE||','||g.REFERENCE_OBJ as trigger_,
+		trim(l.SIGN ||' '||decode(TRIGGER_OPERATOR,'000','',TRIGGER_VALUE_HIGH)) as trigger_op,
+		aa.CLIENT_FEE_ID||','||bb.client_fee_id as client_fee_id,
+		aa.charge_type||','||e.charge_Type as charge_Type,
+		aa.SETTLEMENT_METHOD||','||c.SETTLEMENT_METHOD as SETTLEMENT_METHOD,
+		RECORD_ID_NUMBER, EFFECTIVE_DATE,TIER_LEVEL,POST_FEE_TO_SOURCE
+	from
+	cbr_client_fees aa
+	, BWT_CLIENT_FEE_ID bb
+	, BWT_TRANSACTION_TYPE b
+	, BWT_SETTLEMENT_METHOD c
+	, BWT_FEE_CATEGORY d
+	, BWT_CHARGE_TYPE e
+	, BWT_REFERENCE_OBJECT g
+	, BWT_ACCOUNT_CONDITION_SET j
+	, bwt_periodic_cycles k
+	, BWT_SIGN_OPERATORS l
+	, BWT_OBJECT_LEVEL m
+	, BWT_currency acct_curr
+	, BWT_currency fee_curr
+where
+	bb.index_field(+) = aa.client_fee_id and aa.institution_number=bb.institution_number(+) and bb.language(+)='USA'
+	and b.index_field(+) = aa.FEE_TRANSACTION_TYPE and aa.institution_number=b.institution_number(+) and b.language(+)='USA'
+	and aa.fee_category=d.index_field(+) and aa.institution_number=d.institution_number(+) and d.language(+)='USA'
+	and aa.charge_type=e.index_field(+) and aa.institution_number=e.institution_number(+) and e.language(+)='USA'
+	and aa.trigger_source = g.index_field(+) and aa.institution_number=g.institution_number(+) and g.language(+)='USA'
+	and aa.CONDITION_SET = j.index_field(+) and aa.institution_number=j.institution_number(+) and j.language(+)='USA'
+	and aa.SETTLEMENT_METHOD = c.index_field(+) and aa.institution_number=c.institution_number(+) and c.language(+)='USA'
+    and aa.TRIGGER_PERIOD = k.index_field(+) and aa.institution_number=k.institution_number(+) and k.language(+)='USA'
+    and aa.TRIGGER_OPERATOR = l.index_field(+) and aa.institution_number=l.institution_number(+) and l.language(+)='USA'
+    and aa.OBJECT_LEVEL = m.index_field(+) and aa.institution_number=m.institution_number(+) and m.language(+)='USA'
+    and aa.acct_currency = acct_curr.iso_code(+) and aa.institution_number=acct_curr.institution_number(+) and acct_curr.language(+)='USA'
+    and aa.fee_currency = fee_curr.iso_code(+) and aa.institution_number=fee_curr.institution_number(+) and fee_curr.language(+)='USA'
+	and	  aa.FEE_CATEGORY='001'
+	  and aa.EFFECTIVE_DATE = (select max(effective_date) from cbr_client_fees where aa.INSTITUTION_NUMBER = INSTITUTION_NUMBER and aa.TRIGGER_RULE_ID = TRIGGER_RULE_ID and aa.SERVICE_CONTRACT_ID = SERVICE_CONTRACT_ID
+	  and aa.ACCOUNT_TYPE_ID = ACCOUNT_TYPE_ID and ACCT_CURRENCY=aa.ACCT_CURRENCY and SERVICE_ID=aa.SERVICE_ID and aa.CONDITION_SET=CONDITION_SET and aa.SETTLEMENT_METHOD=SETTLEMENT_METHOD and aa.CLIENT_FEE_ID=CLIENT_FEE_ID and TIER_LEVEL=aa.TIER_LEVEL)
+    and aa.institution_number = ':institution_number'
+	order by client_tariff, fee_tran_type, acct_currency
+	</SQLQuery>
+        <TransmittedConditionColumns/>
+        <ResultColumns>not: INSTITUTION_NUMBER,SERVICE_CONTRACT_ID,ACCOUNT_TYPE_ID,ACCT_CURRENCY</ResultColumns>
+        <SuperSQLQuery>CONTRACT ACCT TYPE</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>POSTING METHOD</SQLQueryLabel>
+        <SQLQuery>
+			select distinct
+			a.INSTITUTION_NUMBER,
+			a.SERVICE_CONTRACT_ID,
+			a.account_Type_id,
+			a.POSTING_METHOD||','||d.posting_method as POSTING_METHOD_DESC,
+			a.POSTING_METHOD
+			from
+				CBR_POSTING_INSTRUCTIONS a,BWT_POSTING_TARIFF D
+			WHERE
+				a.posting_method = d.index_field(+) and a.institution_number = d.institution_number(+) and d.language(+)='USA'
+				and a.institution_number is not null
+				and a.institution_number = ':institution_number'
+			order by POSTING_METHOD_DESC
+		</SQLQuery>
+
+        <TransmittedConditionColumns>POSTING_METHOD</TransmittedConditionColumns>
+        <ResultColumns>POSTING_METHOD_DESC</ResultColumns>
+        <SuperSQLQuery>CONTRACT ACCT TYPE</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition>
+        <SQLQueryLabel>POSTING INSTRUCTIONS</SQLQueryLabel>
+        <SQLQuery>
+			select
+			distinct
+			a.INSTITUTION_NUMBER,
+			a.SERVICE_CONTRACT_ID,
+			a.POSTING_METHOD,
+			a.SERVICE_ID||','||c.service_id as SERVICE_ID,
+			a.TRANSACTION_CLASS,
+			a.TRANSACTION_CATEGORY||','||e.TRANSACTION_CATEGORY as TRANSACTION_CATEGORY,
+			a.TRANSACTION_TYPE||','||f.transaction_type as TRANSACTION_TYPE,
+			nvl(tr_curr.swift_code,TRAN_CURRENCY) as TRAN_CURRENCY,
+			nvl(settl_curr.swift_code,SETTLEMENT_CURRENCY) as SETTLEMENT_CURRENCY,
+			a.ACCOUNT_TYPE_ID,nvl(acct_curr.swift_code, ACCT_CURRENCY) as ACCT_CURRENCY
+			, AREA_OF_EVENT,SERVICE_TYPE,ISO_BUSS_CLASS_GROUP
+			from CBR_POSTING_INSTRUCTIONS A,
+			BWT_SERVICES C, BWT_TRANSACTION_CATEGORY E, BWT_TRANSACTION_TYPE F, BWT_CURRENCY TR_CURR, BWT_CURRENCY SETTL_CURR, BWT_CURRENCY acct_curr
+			WHERE a.service_id = c.index_field(+) and a.institution_number = c.institution_number(+) and c.language(+)='USA'
+			and a.TRANSACTION_CATEGORY = e.index_field(+) and a.institution_number = e.institution_number(+) and e.language(+)='USA'
+			and a.TRANSACTION_TYPE = f.index_field(+) and a.institution_number = f.institution_number(+) and f.language(+)='USA'
+			and TRAN_CURRENCY = tr_curr.iso_code(+)and SETTLEMENT_CURRENCY = settl_curr.iso_code(+)
+			and acct_currency = acct_curr.iso_code(+) and a.institution_number = acct_curr.institution_number(+) and acct_curr.language(+)='USA'
+			and a.institution_number = tr_curr.institution_number(+) and a.institution_number = settl_curr.institution_number(+)
+			and tr_curr.language(+)='USA' and settl_curr.language(+) ='USA'
+			and a.institution_number = ':institution_number'
+			order by a.INSTITUTION_NUMBER,SERVICE_CONTRACT_id,SERVICE_ID,POSTING_METHOD, a.TRANSACTION_CLASS, TRANSACTION_CATEGORY, TRANSACTION_TYPE,SETTLEMENT_CURRENCY,
+			TRAN_CURRENCY,AREA_OF_EVENT,SERVICE_TYPE,ISO_BUSS_CLASS_GROUP DESC
+		</SQLQuery>
+        <TransmittedConditionColumns>ACCT_CURRENCY</TransmittedConditionColumns>
+        <ResultColumns>not: INSTITUTION_NUMBER, SERVICE_CONTRACT_ID, POSTING_METHOD, ACCOUNT_TYPE_ID</ResultColumns>
+        <SuperSQLQuery>POSTING METHOD</SuperSQLQuery>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>GL acconts per Account Type</SQLQueryLabel>
+        <SuperSQLQuery>CONTRACT ACCT TYPE</SuperSQLQuery>
+        <SQLQuery> 		
+select
+GL_ACCOUNT_NAME,
+gl_curr.swift_code||','||GL_ACCT_CURRENCY as GL_ACCT_CURRENCY,
+gl_account_type_id ||','|| typ.type_id ||' '||ch.SYNTH_EXT_SOURCE||','||ext_src.SYNTH_EXT_SOURCE as GL_acct_type,
+ch.CLEARING_CHANNEL ||', '||chan.clearing_channel as clearing_channel_desc ,
+ch.TRANSACTION_TYPE ||', '||tr_typ.transaction_Type as transaction_type
+, decode(PRINCIPAL_DR,PRINCIPAL_CR,PRINCIPAL_DR,PRINCIPAL_DR||' |--| '||PRINCIPAL_CR ) as PRINCIPAL_DR_CR, GL_TRANSACTION_LEVEL
+,record_id_number, ch.institution_number,
+account_type_id ||', '|| typ2.type_id as account_type,
+account_type_id,
+ACCT_CURRENCY,  GL_TRAN_CURRENCY,
+SYNTH_EXTENSION, SERVICE_ID, SERVICE_CONTRACT_ID, CLIENT_TYPE, RESIDENCE_STATUS
+,client_country, CLIENT_BRANCH,EFFECTIVE_DATE
+, area_of_event
+, audit_trail, chan.index_field as clearing_channel
+from CBR_CHART_OF_ACCOUNTS ch, bwt_account_type_id typ,bwt_account_type_id typ2, bwt_clearing_channel chan, bwt_transaction_type tr_typ, bwt_synth_ext_source ext_src, bwt_currency GL_curr
+where
+ch.SYNTH_EXT_SOURCE=ext_src.index_Field(+) and ext_src.institution_number(+) = ch.institution_number and ext_src.language(+)='USA' and
+typ.index_field(+) = gl_account_type_id and typ.institution_number(+) = ch.institution_number and typ.language(+)='USA' and
+typ2.index_field(+) = account_type_id and typ2.institution_number(+) = ch.institution_number and typ2.language(+)='USA' and
+tr_typ.index_field(+) = ch.transaction_type and tr_typ.institution_number(+) = ch.institution_number and tr_typ.language(+)='USA' and
+GL_curr.iso_code(+) = ch.GL_acct_currency and GL_curr.institution_number(+) = ch.institution_number and GL_curr.language(+)='USA' and
+chan.SYNTH_EXT(+) = ch.SYNTH_EXTENSION and ch.institution_number=chan.institution_number(+) and chan.language(+)='USA'
+and ch.EFFECTIVE_DATE = (
+					select max(EFFECTIVE_DATE)
+					from cbr_chart_of_accounts
+					where
+					GL_ACCOUNT_TYPE_ID  = 	ch.GL_ACCOUNT_TYPE_ID
+					and GL_ACCT_CURRENCY    = ch.GL_ACCT_CURRENCY
+					and INSTITUTION_NUMBER  = ch.INSTITUTION_NUMBER
+					and SYNTH_EXTENSION	    = ch.SYNTH_EXTENSION
+					and ACCT_CURRENCY 	    = ch.ACCT_CURRENCY
+					and ACCOUNT_TYPE_ID	    = ch.ACCOUNT_TYPE_ID
+					and SERVICE_ID		    = ch.SERVICE_ID
+					and SERVICE_CONTRACT_ID = ch.SERVICE_CONTRACT_ID
+					and CLIENT_TYPE		    = ch.CLIENT_TYPE
+					and GL_TRAN_CURRENCY    = ch.GL_TRAN_CURRENCY
+					)
+and account_type_id!='000'
+and ch.institution_number = ':institution_number'
+order by  ch.INSTITUTION_NUMBER,GL_ACCOUNT_TYPE_ID,SYNTH_EXTENSION,GL_ACCT_CURRENCY,PRINCIPAL_DR,SERVICE_CONTRACT_ID,ACCOUNT_TYPE,SYNTH_EXTENSION,ACCT_CURRENCY,TRANSACTION_TYPE,SYNTH_EXTENSION,GL_ACCT_CURRENCY;
+    </SQLQuery>
+        <TransmittedConditionColumns/>
+        <ResultColumns>not: account_type_id</ResultColumns>
+    </SQLQueryDefinition>
+    <SQLQueryDefinition>
+        <SQLQueryLabel>CHANNEL TYPE</SQLQueryLabel>
+        <SQLQuery> 
+		select replace(replace (level, '1','Transaction Source'),'2','Transaction Destination') as channel_type from dual
+		connect by level &lt; 3 
+    </SQLQuery>
+        <TransmittedConditionColumns>channel_type </TransmittedConditionColumns>
+        <SuperSQLQuery>INSTITUTIONS</SuperSQLQuery>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>CLEARING CHANNELS</SQLQueryLabel>
+        <SQLQuery>
+select * from
+(
+select a.INSTITUTION_NUMBER,CHANNEL as CLEARING_CHANNEL,channel_type,
+CHANNEL||','||CLEARING_CHANNEL as CHANNEL,
+CLIENT_REGION,
+CLIENT_NUMBER||','||(select company_name from cis_client_details where a.CLIENT_NUMBER=client_number and a.INSTITUTION_NUMBER=INSTITUTION_NUMBER) as CLIENT_NUMBER
+,RECS
+from
+(
+	select INSTITUTION_NUMBER, client_Region
+	, decode (TRANSACTION_SOURCE,'999', 'Transaction Destination','999999','Transaction Destination','Transaction Source')as channel_type
+	,decode (TRANSACTION_SOURCE,'999', TRANSACTION_DESTINATION,'999999',TRANSACTION_DESTINATION,TRANSACTION_SOURCE)as channel
+	, CLIENT_NUMBER, count(*) as recs
+	from cbr_channel_definition
+	group by
+	decode (TRANSACTION_SOURCE,'999', 'Transaction Destination','999999','Transaction Destination','Transaction Source')
+	,INSTITUTION_NUMBER, client_Region,decode (TRANSACTION_SOURCE,'999', TRANSACTION_DESTINATION,'999999',TRANSACTION_DESTINATION,TRANSACTION_SOURCE),CLIENT_NUMBER
+)a,bwt_clearing_Channel b 
+where a.channel=b.index_field(+) and a.INSTITUTION_NUMBER = b.INSTITUTION_NUMBER (+) and b.language(+)='USA'
+and a.institution_number = ':institution_number'
+union
+select a.institution_number,a.clearing_channel,'Transaction Destination' as channel_type
+,a.CLEARING_CHANNEL ||','||b.CLEARING_CHANNEL as CHANNEL,'n/a' CLIENT_REGION
+, 'acct settlement channel' as client_number,  recs
+from (
+select count(*) as recs, institution_number,clearing_channel from cbr_settlement_Schemes
+where clearing_channel not in ('018','000018')
+group by  institution_number,clearing_channel
+) a, bwt_clearing_channel b
+where a.clearing_channel=b.index_field(+) and a.INSTITUTION_NUMBER = b.INSTITUTION_NUMBER (+) and b.language(+)='USA'
+and a.institution_number = ':institution_number'
+)
+order by substr(CHANNEL,length(CLEARING_CHANNEL)+1)
+</SQLQuery>
+        <TransmittedConditionColumns>,CLEARING_CHANNEL,channel_type</TransmittedConditionColumns>
+        <ResultColumns>not: INSTITUTION_NUMBER,CLEARING_CHANNEL,channel_type</ResultColumns>
+        <SuperSQLQuery>CHANNEL TYPE</SuperSQLQuery>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition>
+        <SQLQueryLabel>CHANNEL DEFINITION</SQLQueryLabel>
+        <SQLQuery>
+select distinct
+	a.INSTITUTION_NUMBER,
+	decode (TRANSACTION_SOURCE,'999', TRANSACTION_DESTINATION,'999999',TRANSACTION_DESTINATION,TRANSACTION_SOURCE) as clearing_channel
+	,a.CARD_ORGANIZATION||','||d.CARD_ORGANIZATION as CARD_ORG
+	,a.area_of_event||','||f.area_of_action as area_of_action
+	, client_region as client_region_desc
+    ,client_number, g.swift_code as settlement_curr, h.swift_code as tran_currency
+    ,a.CHARGE_TYPE||','||e.charge_type as charge_type,INTERCHANGE_INSTITUTION,transaction_type,
+	a.transaction_category||','||j.transaction_category as transaction_category
+	,record_type,a.CARD_ORGANIZATION,a.client_region,a.settlement_currency
+from
+	CBR_channel_definition a,
+	Bwt_clearing_channel b,
+	bwt_clearing_channel c,
+	bwt_card_organization d,
+	bwt_charge_type e,
+	bwt_area_of_action f,
+	bwt_currency g,
+	bwt_currency h,
+	bwt_transaction_category j
+where
+	 a.TRANSACTION_DESTINATION =b.index_field(+) and a.institution_number =b.institution_number(+) and b.language(+)='USA'
+	and a.TRANSACTION_SOURCE = c.index_field(+) and a.institution_number =c.institution_number(+) and c.language(+)='USA'
+	and a.CARD_ORGANIZATION=d.index_Field(+) and a.institution_number =d.institution_number(+) and d.language(+)='USA'
+	and a.charge_type=e.index_Field(+) and a.institution_number =e.institution_number(+) and e.language(+)='USA'
+	and a.AREA_OF_EVENT=f.index_Field(+) and a.institution_number =f.institution_number(+) and f.language(+)='USA'
+	and a.SETTLEMENT_CURRENCY = g.iso_code(+) and a.institution_number =g.institution_number(+) and g.language(+)='USA'
+	and a.TRAN_CURRENCY = h.iso_code(+) and a.institution_number =h.institution_number(+) and h.language(+)='USA'
+	and a.transaction_category = j.index_field(+) and a.institution_number =j.institution_number(+) and j.language(+)='USA'
+	and a.institution_number = ':institution_number'
+	order by CARD_ORG,area_of_action,settlement_curr,tran_currency
+	</SQLQuery>
+        <ResultColumns>CARD_ORG,AREA_OF_ACTION,CLIENT_REGION_desc,CLIENT_NUMBER,SETTLEMENT_CURR,TRAN_CURRENCY,CHARGE_TYPE,INTERCHANGE_INSTITUTION,TRANSACTION_TYPE,TRANSACTION_CATEGORY</ResultColumns>
+        <SuperSQLQuery>CLEARING CHANNELS</SuperSQLQuery>
+        <MaxInheritanceDepth>9</MaxInheritanceDepth>
+        <TransmittedConditionColumns>
+	CARD_ORGANIZATION,CLIENT_REGION,SETTLEMENT_CURRENCY
+	</TransmittedConditionColumns>
+        
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>INTERCHANGE DETAILS </SQLQueryLabel>
+        <SQLQuery>
+			select INSTITUTION_NUMBER,CLIENT_NUMBER,CARD_ORGANIZATION,CLIENT_REGION,SETTLEMENT_CURRENCY,LOCAL_CURRENCY,ACQUIRING_BIN,ORGANIZATION_ID,MEMBER_ID,ORGANIZATION_CENTER_BIN,TEST_MODE,FILE_SEQUENCE 
+			from cis_interchange_details 
+		</SQLQuery>
+        <TransmittedConditionColumns/>
+        <ResultColumns>Not: INSTITUTION_NUMBER</ResultColumns>
+        <SuperSQLQuery>CHANNEL DEFINITION</SuperSQLQuery>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>GL RULES</SQLQueryLabel>
+        <SuperSQLQuery>CLEARING CHANNELS</SuperSQLQuery>
+        <SQLQuery> 
+			select distinct 
+			R.INSTITUTION_NUMBER,
+			R.TRANSACTION_CLASS,
+			R.TRANSACTION_CLASS||','||c.transaction_class as TRANSACTION_CLASS_DESC,
+			R.CLEARING_CHANNEL
+			from CBR_ACCT_RULES_GROUP R, bwt_transaction_class c
+			where R.TRANSACTION_CLASS = c.index_field(+) and R.institution_number =c.institution_number(+) and c.language(+)='USA'
+		</SQLQuery>
+        <TransmittedConditionColumns>TRANSACTION_CLASS</TransmittedConditionColumns>
+        <ResultColumns>TRANSACTION_CLASS_DESC</ResultColumns>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+		<SQLQueryLabel>GL RULES DETAILED</SQLQueryLabel>
+        <SuperSQLQuery>GL RULES</SuperSQLQuery>
+        <SQLQuery> 
+select distinct
+		R.INSTITUTION_NUMBER,
+		R.TRANSACTION_CLASS,
+		R.TRANSACTION_CATEGORY,
+		R.CLEARING_CHANNEL,
+		r.record_id_number,
+		R.TRANSACTION_CLASS||','||c.transaction_class as TRANSACTION_CLASS_DESC,
+		R.TRANSACTION_CATEGORY||','||d.transaction_category as TRANSACTION_CAtegory_DESC,
+		r.TRANSACTION_TYPE||','||tr_typ.TRANSACTION_TYPE as TRANSACTION_TYPE,
+		r.SETTLEMENT_CURRENCY
+		from CBR_ACCT_RULES_GROUP R, bwt_transaction_class c,bwt_transaction_category d, bwt_transaction_Type tr_typ
+		where R.TRANSACTION_CATEGORY = d.index_field(+) and R.institution_number =d.institution_number(+) and d.language(+)='USA'
+		and R.TRANSACTION_CLASS = c.index_field(+) and R.institution_number =c.institution_number(+) and c.language(+)='USA'
+		and r.transaction_type = tr_typ.index_field(+) and r.institution_number=tr_typ.institution_number(+) and tr_typ.language(+)='USA'
+		and r.institution_number = ':institution_number'
+		order by TRANSACTION_CAtegory_DESC,TRANSACTION_TYPE
+    </SQLQuery>
+        <TransmittedConditionColumns>record_id_number</TransmittedConditionColumns>
+        <ResultColumns>not: INSTITUTION_NUMBER,TRANSACTION_CLASS,TRANSACTION_CATEGORY,CLEARING_CHANNEL</ResultColumns>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>GL INSTRUCTIONS</SQLQueryLabel>
+        <SuperSQLQuery>GL RULES DETAILED</SuperSQLQuery>
+        <SQLQuery> 
+select
+		i.INSTITUTION_NUMBER,
+		i.record_id_number,
+		proc.process_id ||', '||i.process_id as process_phase,
+		i.sequence_number,
+		amt_type.amount_type||','||i.amount_type as amount_type ,
+		curr_type.currency_type ||','|| i.currency_type as currency_type,
+		i.gl_dr_account||','||acct_dr.type_id  ||' '||  dr_ext.synth_ext_source ||'('|| i.dr_synth_extension_source||')'  as Acct_Type_Debit,
+		i.gl_cr_account||','|| acct_cr.type_id ||' '||  cr_ext.synth_ext_source ||'('|| i.cr_synth_extension_source||')' as Acct_Type_Credit,
+		i.transaction_narrative,
+		i.audit_trail
+	from  CBR_ACCT_RULES_INSTRUCTIONS i
+          ,bwt_process_id proc, bwt_account_type_id acct_dr, bwt_account_type_id acct_cr,bwt_amount_type amt_type,bwt_currency_type curr_type, bwt_synth_ext_source dr_ext, bwt_synth_ext_source cr_ext
+		where i.process_id = proc.index_field(+) and i.institution_number=proc.institution_number(+) and proc.language(+)='USA'
+		and acct_cr.index_field	(+) = gl_cr_account  and i.institution_number=acct_cr.institution_number(+) and acct_cr.language(+)='USA'
+		and acct_dr.index_field(+) = gl_dr_account and i.institution_number=acct_dr.institution_number(+) and acct_dr.language(+)='USA'
+		and i.amount_type = amt_type.index_field(+) and i.institution_number=amt_type.institution_number(+) and amt_type.language(+)='USA'
+		and i.currency_type = curr_type.index_field(+) and i.institution_number=curr_type.institution_number(+) and curr_type.language(+)='USA'
+		and i.dr_synth_extension_source = dr_ext.index_field(+) and i.institution_number=dr_ext.institution_number(+) and dr_ext.language(+)='USA'
+		and i.cr_synth_extension_source = cr_ext.index_field(+) and i.institution_number=cr_ext.institution_number(+) and cr_ext.language(+)='USA'
+		and i.institution_number = ':institution_number'
+		order by i.sequence_number
+    </SQLQuery>
+        <TransmittedConditionColumns/>
+        <ResultColumns>not: INSTITUTION_NUMBER, record_id_number,</ResultColumns>
+    </SQLQueryDefinition>
+    
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>Channel extended GL acconts</SQLQueryLabel>
+        <SuperSQLQuery>CLEARING CHANNELS</SuperSQLQuery>
+        <SQLQuery> 		
+select
+GL_ACCOUNT_NAME,
+gl_curr.swift_code||','||GL_ACCT_CURRENCY as GL_ACCT_CURRENCY,
+gl_account_type_id ||','|| typ.type_id ||' '||ch.SYNTH_EXT_SOURCE||','||ext_src.SYNTH_EXT_SOURCE as GL_acct_type,
+ch.CLEARING_CHANNEL ||', '||chan.clearing_channel as clearing_channel_desc ,
+ch.TRANSACTION_TYPE ||', '||tr_typ.transaction_Type as transaction_type
+, decode(PRINCIPAL_DR,PRINCIPAL_CR,PRINCIPAL_DR,PRINCIPAL_DR||' |--| '||PRINCIPAL_CR ) as PRINCIPAL_DR_CR, GL_TRANSACTION_LEVEL
+,record_id_number,'pk', ch.institution_number,
+gl_account_type_id ||', '|| typ.type_id as gl_account_type,
+account_type_id ||', '|| typ2.type_id as account_type,
+ACCT_CURRENCY,  GL_TRAN_CURRENCY,
+SYNTH_EXTENSION, SERVICE_ID, SERVICE_CONTRACT_ID, CLIENT_TYPE, RESIDENCE_STATUS
+,client_country, CLIENT_BRANCH,EFFECTIVE_DATE
+,'pk-ende'
+, area_of_event
+, audit_trail, chan.index_field as clearing_channel
+from CBR_CHART_OF_ACCOUNTS ch, bwt_account_type_id typ,bwt_account_type_id typ2, bwt_clearing_channel chan, bwt_transaction_type tr_typ, bwt_synth_ext_source ext_src, bwt_currency GL_curr
+where
+ch.SYNTH_EXT_SOURCE=ext_src.index_Field(+) and ext_src.institution_number(+) = ch.institution_number and ext_src.language(+)='USA' and
+typ.index_field(+) = gl_account_type_id and typ.institution_number(+) = ch.institution_number and typ.language(+)='USA' and
+typ2.index_field(+) = account_type_id and typ2.institution_number(+) = ch.institution_number and typ2.language(+)='USA' and
+tr_typ.index_field(+) = ch.transaction_type and tr_typ.institution_number(+) = ch.institution_number and tr_typ.language(+)='USA' and
+GL_curr.iso_code(+) = ch.GL_acct_currency and GL_curr.institution_number(+) = ch.institution_number and GL_curr.language(+)='USA' and
+chan.SYNTH_EXT(+) = ch.SYNTH_EXTENSION and ch.institution_number=chan.institution_number(+) and chan.language(+)='USA'
+and ch.EFFECTIVE_DATE = (
+					select max(EFFECTIVE_DATE)
+					from cbr_chart_of_accounts
+					where
+					GL_ACCOUNT_TYPE_ID  = 	ch.GL_ACCOUNT_TYPE_ID
+					and GL_ACCT_CURRENCY    = ch.GL_ACCT_CURRENCY
+					and INSTITUTION_NUMBER  = ch.INSTITUTION_NUMBER
+					and SYNTH_EXTENSION	    = ch.SYNTH_EXTENSION
+					and ACCT_CURRENCY 	    = ch.ACCT_CURRENCY
+					and ACCOUNT_TYPE_ID	    = ch.ACCOUNT_TYPE_ID
+					and SERVICE_ID		    = ch.SERVICE_ID
+					and SERVICE_CONTRACT_ID = ch.SERVICE_CONTRACT_ID
+					and CLIENT_TYPE		    = ch.CLIENT_TYPE
+					and GL_TRAN_CURRENCY    = ch.GL_TRAN_CURRENCY
+					)
+and ch.SYNTH_EXT_SOURCE in ('001','003')
+and ch.institution_number = ':institution_number'
+order by  ch.INSTITUTION_NUMBER,GL_ACCOUNT_TYPE_ID,SYNTH_EXTENSION,GL_ACCT_CURRENCY,PRINCIPAL_DR,SERVICE_CONTRACT_ID,ACCOUNT_TYPE,SYNTH_EXTENSION,ACCT_CURRENCY,TRANSACTION_TYPE,SYNTH_EXTENSION,GL_ACCT_CURRENCY;
+    </SQLQuery>
+        <TransmittedConditionColumns/>
+        <ResultColumns>not: clearing_channel</ResultColumns>
+    </SQLQueryDefinition>
+	
+    <SQLQueryDefinition suppressDisplayIfNoData="true">
+        <SQLQueryLabel>ACCT SETTLEMENT SCHEMES</SQLQueryLabel>
+        <SuperSQLQuery>CLEARING CHANNELS</SuperSQLQuery>
+        <SQLQuery> 				
+select
+a.institution_number,
+a.SETTLEMENT_CATEGORY||','||b.settlement_category as settl_category,
+a.SERVICE_CONTRACT_ID||','||k.service_contract as service_contract_id,
+a.ACCOUNT_TYPE_ID||','||e.Type_id as source_acct,
+a.TRANSACTION_TYPE||','||h.transaction_type as settl_tran_type,
+count(*) as count_recs, count(distinct settlement_method)as count_settl_meth, count(distinct ACCT_CURRENCY ) as count_ACCT_CURR
+,a.CLEARING_CHANNEL
+from
+ CBR_SETTLEMENT_SCHEMES a,
+ BWT_SETTLEMENT_CATEGORY b,
+ bwt_account_Type_id e,
+ BWT_clearing_Channel g,
+ BWT_transaction_type h,
+ bwt_service_contract_id k
+where a.settlement_category =b.index_field(+) and a.institution_number=b.institution_number(+) and b.language(+)='USA'
+and a.account_Type_id=e.index_field(+) and a.institution_number=e.institution_number(+) and e.language(+)='USA'
+and a.clearing_channel = g.index_field(+)and a.institution_number=g.institution_number(+) and g.language(+)='USA'
+and a.transaction_type =h.index_field(+) and a.institution_number=h.institution_number(+) and h.language(+)='USA'
+and a.service_contract_id =k.index_field(+) and a.institution_number=k.institution_number(+) and k.language(+)='USA'
+and a.institution_number = ':institution_number'
+group by
+a.institution_number,
+a.SETTLEMENT_CATEGORY||','||b.settlement_category,
+a.SERVICE_CONTRACT_ID||','||k.service_contract,
+a.ACCOUNT_TYPE_ID||','||e.Type_id,
+a.TRANSACTION_TYPE||','||h.transaction_type,
+a.CLEARING_CHANNEL
+order by source_acct,settl_tran_Type, settl_Category;
+    </SQLQuery>
+        <TransmittedConditionColumns/>
+        <ResultColumns>not: clearing_channel</ResultColumns>
+    </SQLQueryDefinition>
+
+    <SQLQueryDefinition>
+        <SQLQueryLabel>FX RATE RULES</SQLQueryLabel>
+        <SuperSQLQuery>CLEARING CHANNELS</SuperSQLQuery>
+        <SQLQuery> 
+select
+ b.PROCESS_ID||','||c.process_id as process_id
+--,GROUP_ID||','||fx_grp.rate_group as rate_group
+,b.group_id
+,TRN_TO_SETTL_CATEGORY||','||trn_settl_cat.FX_RATE_CATEGORY as TRN_TO_SETTL_CATEGORY,
+TRN_TO_SETTL_TYPE||','||trn_Settl_type.FX_RATE_TYPE TRN_TO_SETTL_TYPE,
+TRN_TO_ACCT_CATEGORY||','||trn_acct_cat.FX_RATE_CATEGORY as TRN_TO_ACCT_CATEGORY,
+TRN_TO_ACCT_TYPE||','|| trn_acct_type.FX_RATE_TYPE as TRN_TO_ACCT_TYPE,
+SETTL_TO_LOC_CATEGORY,SETTL_TO_LOC_TYPE
+,LOC_TO_ACCT_CATEGORY,LOC_TO_ACCT_TYPE
+, b.INSTITUTION_NUMBER
+, b.clearing_CHANNEL
+from
+CBR_FX_RATE_RULES b, bwT_process_id c, bwt_clearing_Channel d,
+bwT_FX_RATE_CATEGORY trn_settl_cat,
+bwT_FX_RATE_TYPE trn_Settl_type,
+bwT_FX_RATE_CATEGORY trn_acct_cat,
+bwT_FX_RATE_TYPE trn_acct_type
+--,bwT_FX_RATE_group fx_grp
+where
+	b.PROCESS_ID=c.indeX_field(+) and c.language(+) ='USA' and b.institution_number= c.institution_number(+)
+	and b.clearing_channel=d.indeX_field(+) and d.language(+) ='USA' and b.institution_number= d.institution_number(+)
+	and b.TRN_TO_SETTL_CATEGORY=trn_settl_cat.indeX_field(+) and trn_settl_cat.language(+) ='USA' and b.institution_number= trn_settl_cat.institution_number(+)
+	and b.TRN_TO_SETTL_TYPE=trn_settl_type.indeX_field(+) and trn_settl_type.language(+) ='USA' and b.institution_number = trn_settl_type.institution_number(+)
+	and b.TRN_TO_ACCT_CATEGORY=trn_acct_cat.indeX_field(+) and trn_acct_cat.language(+) ='USA' and b.institution_number= trn_acct_cat.institution_number(+)
+	and b.TRN_TO_ACCT_TYPE=trn_acct_type.indeX_field(+) and trn_acct_type.language(+) ='USA' and b.institution_number = trn_acct_type.institution_number(+)
+	--and b.GROUP_ID=fx_grp.indeX_field(+) and fx_grp.language(+) ='USA' and b.institution_number = fx_grp.institution_number(+)
+	AND EFFECTIVE_DATE = (SELECT MAX(EFFECTIVE_DATE) FROM CBR_FX_RATE_RULES WHERE INSTITUTION_NUMBER = b.INSTITUTION_NUMBER
+			AND CLEARING_CHANNEL = b.CLEARING_CHANNEL
+			AND PROCESS_ID = b.PROCESS_ID)
+	and b.institution_number = ':institution_number'
+	order by process_id		
+    </SQLQuery>
+        <TransmittedConditionColumns>INSTITUTION_NUMBER,GROUP_ID </TransmittedConditionColumns>
+        <ResultColumns>PROCESS_ID,RATE_GROUP,TRN_TO_SETTL_CATEGORY,TRN_TO_SETTL_TYPE,SETTL_TO_LOC_CATEGORY,SETTL_TO_LOC_TYPE,LOC_TO_ACCT_CATEGORY,LOC_TO_ACCT_TYPE,TRN_TO_ACCT_CATEGORY,TRN_TO_ACCT_TYPE</ResultColumns>
+    </SQLQueryDefinition>
+    
+    <!--
+<SQLQueryDefinition>	
+	<SQLQueryLabel>FX GROUPS SETUP</SQLQueryLabel>
+	<SQLQuery>
+	select INSTITUTION_NUMBER , GROUP_ID  ,TRANSACTION_TYPE,TRANSACTION_CURRENCY,CARD_ORGANIZATION
+from CBR_FX_RATE_GROUP order  by 1,2,3,4
+</SQLQuery>
+	<TransmittedConditionColumns/>
+	<ResultColumns>GROUP_ID ,CARD_ORGANIZATION,TRANSACTION_TYPE,TRANSACTION_CURRENCY</ResultColumns>
+	<SuperSQLQuery>FX RATE RULES</SuperSQLQuery>
+	<MaxInheritanceDepth>4</MaxInheritanceDepth>
+</SQLQueryDefinition>
+
+select * from CBR_CHART_OF_ACCOUNTS;
+select * from CIS_FUNDING_INFORMATION;
+select * from SYS_SUNDRY_MAP_CHANNEL;
+select * from  SYS_PROCESS_TRAN_SELECTION;
+select * from SYS_PROCESS_FILE_SELECTION;
+select * from SYS_MEMBER_AREA_OF_EVENT;
+
+select * from(
+select TRANSACTION_SOURCE,CARD_ORGANIZATION from  SYS_CHANNEL_MAPPING
+union
+select TRANSACTION_DESTINATION,CARD_ORGANIZATION
+from  SYS_CHANNEL_MAPPING) a, BWt_card_brand b
+where
+-->
+    
+</ROOT>

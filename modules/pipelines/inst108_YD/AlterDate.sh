@@ -1,0 +1,1 @@
+rm -rf "/CI_Pipeline/Profiles/BNZ_DEV_INST108_YD/uploads/$1.inc" && . $PATH010EDITOR/Apply_script.sh AlterTransDateFDMS.1sc "/CI_Pipeline/Profiles/BNZ_DEV_INST108_YD/uploads/$1" "/CI_Pipeline/Profiles/BNZ_DEV_INST108_YD/uploads/$1.inc"

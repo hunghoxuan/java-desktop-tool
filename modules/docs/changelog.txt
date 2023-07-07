@@ -1,0 +1,37 @@
+[v1.9]
+- Add Export module.
+
+[v1.8]
+- Add feature to auto display input modal dialog to enter paramters values.
+- Fix bug auto refresh dropdown data when open input modal dialog.
+
+[v1.7]
+- Add create transctions & authorisations scripts
+- Add create merchant & brokers scripts
+
+[v1.6]
+- Refactor auto complete function
+- Refactor input paramters dialog, display comments in sql file
+
+[v1.5]
+- Refactoring folders structure and menu structure. Auto display files within modules\xxx\0 folder.
+- Add Settings menu -> Edit Lookup Setting
+
+[v1.4]
+- Get all files in xxx/0 folder and auto display within each menu (shortcut)
+
+[v1.3]
+- Update settings > connections.xml
+- Auto display Input form based on paramters in sql files
+
+[v1.2]
+- Add docs folder and dynamically show all content in Tools > Help & Doc menu
+
+[v1.1]
+- Add Data 360 module
+
+[v1.0]
+Initial release
+- Moved away from SVN structure and packed all dependencies into an .exe file
+- Provided a client to manage generator updates
+- Refactored a lot of the code for readability and efficiency

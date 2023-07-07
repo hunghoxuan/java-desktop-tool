@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "FeeCollSettlement"> 
+	<TableExtractDefinition TableName="CBR_SETTLEMENT_SCHEMES"> 
+		<WhereClause> TRIGGER_RULE_ID   !='000' and transaction_type in ('520','601')  </WhereClause>		
+	</TableExtractDefinition>
+	
+	<TableExtractDefinition TableName="SYS_PROCESS_RULES" > 
+		<WhereClause> RULE_ID in (select trigger_rule_id from CBR_SETTLEMENT_SCHEMES where TRIGGER_RULE_ID   !='000' and transaction_type in ('520','601') )</WhereClause>		
+	</TableExtractDefinition>
+	
+	<TableExtractDefinition TableName="CHT_RULE_ID" > 
+		<WhereClause> index_field in (select trigger_rule_id from CBR_SETTLEMENT_SCHEMES where TRIGGER_RULE_ID   !='000' and transaction_type in ('520','601') ) and language='USA'</WhereClause>		
+	</TableExtractDefinition>
+	
+	<TableExtractDefinition TableName="CBR_FEE_GROUPING"/>
+	<TableExtractDefinition TableName="CHT_FEE_GROUPING"/>
+	
+	<TableExtractDefinition TableName="CHT_CLEARING_CHANNEL" > 
+		<WhereClause> index_field in (select clearing_channel from CBR_SETTLEMENT_SCHEMES where TRIGGER_RULE_ID   !='000' and transaction_type in ('520','601')) 
+		</WhereClause>
+	</TableExtractDefinition>
+	
+	<TableExtractDefinition TableName="CBR_CHART_OF_ACCOUNTS" > 
+		<WhereClause> SYNTH_EXTENSION  in ( select synth_ext from cht_clearing_channel where index_field in (select clearing_channel from CBR_SETTLEMENT_SCHEMES where TRIGGER_RULE_ID   !='000' and transaction_type in ('520','601')) )
+		and SYNTH_EXT_SOURCE='001'
+		</WhereClause>
+	</TableExtractDefinition>
+	
+
+</Module>
+</root>

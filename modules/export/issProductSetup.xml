@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "issProductSetup"> 
+
+<TableExtractDefinition TableName="CHT_SERVICE_CONTRACT_ID"> 
+<WhereClause> index_Field in ('033')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_SERVICE_CONTRACT"> 
+<WhereClause> service_contract_id in ('033')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_ASSIGNED_SERVICES"> 
+<WhereClause> service_contract_id in ('033') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_SERVICE_DEFINITION"> 
+<WhereClause> (INSTITUTION_NUMBER,SERVICE_ID) in (select INSTITUTION_NUMBER,SERVICE_ID from CBR_ASSIGNED_SERVICES where service_contract_id in ('033'))</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_SERVICES"> 
+<WhereClause> (INSTITUTION_NUMBER,index_field) in (select INSTITUTION_NUMBER,SERVICE_ID from CBR_ASSIGNED_SERVICES where service_contract_id in ('033') )</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_POSTING_INSTRUCTIONS"> 
+<WhereClause> service_contract_id in ('033')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CONTRACT_ACCT_TYPES"> 
+<WhereClause> service_contract_id in ('033') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_ACCOUNT_TYPE"> 
+<WhereClause>  ACCOUNT_TYPE_ID in ('002','008')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_SETTLEMENT_SCHEMES"> 
+<WhereClause> service_contract_id in ('033') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_TRANSACTION_CHARGES"> 
+<WhereClause> service_contract_id in ('033') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CLIENT_FEES"> 
+<WhereClause> service_contract_id in ('033')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_ACCOUNT_CONDITION_SET"> 
+<WhereClause> INDEX_FIELD in ('001') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_ACCOUNT_TYPE_ID"> 
+<WhereClause> INDEX_FIELD in ('002','008') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="SVC_CLIENT_SERVICE"> 
+<WhereClause> service_contract_id in ('033') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CHART_OF_ACCOUNTS"> 
+<WhereClause> ACCOUNT_TYPE_ID in ('002','008','000') and service_contract_id in ('033','000')
+and  not ('000' = service_contract_id and '000' = ACCOUNT_TYPE_ID)  </WhereClause>
+</TableExtractDefinition>
+
+</Module>
+</root>

@@ -1,0 +1,1 @@
+rm -rf "/CI_Pipeline/Profiles/BNZ_DEV_INST108_YD/uploads/$1"

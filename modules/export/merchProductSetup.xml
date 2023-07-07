@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "merchProductSetup"> 
+
+<TableExtractDefinition TableName="CHT_SERVICE_CONTRACT_ID"> 
+<WhereClause> index_Field in ('111')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_SERVICE_CONTRACT"> 
+<WhereClause> service_contract_id in ('111')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_ASSIGNED_SERVICES"> 
+<WhereClause> service_contract_id in ('111')  and SERVICE_CATEGORY='002'</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_SERVICE_DEFINITION"> 
+<WhereClause> (INSTITUTION_NUMBER,SERVICE_ID) in (select INSTITUTION_NUMBER,SERVICE_ID from CBR_ASSIGNED_SERVICES where service_contract_id in ('111') and SERVICE_CATEGORY='002')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_SERVICES"> 
+<WhereClause> (INSTITUTION_NUMBER,index_field) in (select INSTITUTION_NUMBER,SERVICE_ID from CBR_ASSIGNED_SERVICES where service_contract_id in ('111') and SERVICE_CATEGORY='002')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_POSTING_INSTRUCTIONS"> 
+<WhereClause> service_contract_id in ('111')and ACCOUNT_TYPE_ID in ('009','012') and ACCT_CURRENCY='978' and POSTING_METHOD in ('001','999')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CONTRACT_ACCT_TYPES"> 
+<WhereClause> service_contract_id in ('111') and acct_currency='978' and ACCOUNT_TYPE_ID in ('009','012')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_ACCOUNT_TYPE"> 
+<WhereClause>  ACCOUNT_TYPE_ID in ('009','012')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_SETTLEMENT_SCHEMES"> 
+<WhereClause> service_contract_id in ('111') and acct_currency='978' and ACCOUNT_TYPE_ID in ('009','012') and SETTLEMENT_METHOD in ('010')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_TRANSACTION_CHARGES"> 
+<WhereClause> service_contract_id in ('111') and client_tariff='506' </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CLIENT_FEES"> 
+<WhereClause> service_contract_id in ('111')and ACCOUNT_TYPE_ID in ('009','012') and ACCT_CURRENCY='978' and CLIENT_FEE_ID in ('519','520','524','525','515')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_ACCOUNT_CONDITION_SET"> 
+<WhereClause> INDEX_FIELD in ('012','506') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_ACCOUNT_TYPE_ID"> 
+<WhereClause> INDEX_FIELD in ('012','009') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CHARGE_PACKAGE"> 
+<WhereClause> service_contract_id in ('111') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="SVC_CLIENT_SERVICE"> 
+<WhereClause> service_contract_id in ('111') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CHART_OF_ACCOUNTS"> 
+<WhereClause> ACCOUNT_TYPE_ID in ('009','012','000') and service_contract_id in ('111','000')
+and  not ('000' = service_contract_id and '000' = ACCOUNT_TYPE_ID) and gl_acct_currency='978' </WhereClause>
+</TableExtractDefinition>
+
+</Module>
+</root>

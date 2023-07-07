@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "otherProcs"> 
+
+<TableExtractDefinition TableName="SYS%"  columnName = "PROCESS_NAME"> 
+<WhereClause> process_name in ('000381','000412','000531','000016','000893') </WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_PROCESS_NAME"> 
+<WhereClause> index_field in ('000381','000412','000531','000016','000893')</WhereClause>
+</TableExtractDefinition>
+
+</Module>
+</root>

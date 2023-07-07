@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "trnExport"> 
+<TableExtractDefinition TableName="INT_GL_TRANSACTIONS"> 
+<WhereClause>record_date between '20180701' and '20181101'</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="INT_ADD*"   ColumnName="TRansaction_slip"  > 
+<WhereClause>(transaction_slip, institution_number) in ( select transaction_slip, institution_number from int_transactions where record_date between '20180701' and '20181101')
+</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="INT_TRANSACTIONS"> 
+<WhereClause>record_date between '20180701' and '20181101'</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="int_file_log_details"> 
+<WhereClause>record_date between '20180701' and '20181101'</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="int_sundry_transactions"> 
+<WhereClause>record_date between '20180701' and '20181101'</WhereClause>
+</TableExtractDefinition>
+
+</Module>
+</root>
+

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "IntrabankFNF_Revolving">
+ 
+<TableExtractDefinition TableName="CBR_ACCT_RULES_group"> 
+<WhereClause>INSTITUTION_NUMBER = '00000101' and  RECORD_ID_NUMBER  between '0000000300' and  '0000000307'</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_ACCT_RULES_INSTRUCTIONS"> 
+<WhereClause>INSTITUTION_NUMBER = '00000101' and  RECORD_ID_NUMBER  between '0000000300' and  '0000000307'</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CBR_CHART_OF_ACCOUNTS"> 
+<WhereClause>institution_number in ('00000101') and SYNTH_EXT_SOURCE  in ('005')</WhereClause>
+</TableExtractDefinition>
+
+<TableExtractDefinition TableName="CHT_SYNTH_EXT_USER"> 
+<WhereClause>INSTITUTION_NUMBER  in ('00000101')</WhereClause>
+</TableExtractDefinition>
+
+</Module>
+</root>
+

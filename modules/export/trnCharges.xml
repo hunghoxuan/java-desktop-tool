@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "trnChgExport"> 
+<TableExtractDefinition TableName="CBR_TRANSACTION_CHARGES"> 
+
+</TableExtractDefinition>
+
+</Module>
+</root>
+

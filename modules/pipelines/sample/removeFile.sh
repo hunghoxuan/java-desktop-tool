@@ -1,0 +1,1 @@
+rm -rf "/CI_Pipeline/Profiles/FDB_FUNC_INST03_Marta/uploads/$1"

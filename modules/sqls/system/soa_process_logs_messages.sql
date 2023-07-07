@@ -1,0 +1,9 @@
+SELECT * FROM INT_PROCESS_MESSAGE_LOG WHERE INSTITUTION_NUMBER = '&institution_number' and TRANSACTION_SLIP IN ('&transaction_slip') order by 1; -- '32000050507', '32000050509', '32000050516',
+
+SELECT * FROM INT_PROCESS_LOG WHERE INSTITUTION_NUMBER = '&institution_number' AND (POSTING_DATE = '&processing_date' OR PROCESS_NUMBER IN (SELECT PROCESS_NUMBER FROM INT_PROCESS_FILE_LOG WHERE INSTITUTION_NUMBER = '&institution_number' AND FILE_NUMBER = '&file_number'))  order by 1;
+
+SELECT * FROM INT_PROCESS_FILE_LOG WHERE INSTITUTION_NUMBER = '&institution_number'  order by 1;
+
+SELECT * FROM INT_PROCESS_PARAMS WHERE PROCESS_NUMBER IN (SELECT PROCESS_NUMBER FROM INT_PROCESS_FILE_LOG WHERE INSTITUTION_NUMBER = '&institution_number' AND FILE_NUMBER = '&file_number') order by 1;
+
+select * from bwt_processing_status where INSTITUTION_NUMBER = '&institution_number' order by 1;

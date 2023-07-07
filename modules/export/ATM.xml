@@ -1,0 +1,81 @@
+
+<root>
+<Module name = "ATM"> 
+	<export table="CHT_CLEARING_CHANNEL"> 
+		<where> index_field = '080' and institution_number = '00000004' </where>
+	</export>
+	<export table="CHT_SERVICE_CONTRACT_ID"> 
+		<where> index_field in ('114')   </where>
+		<REPLACEVALUE>SERVICE_CONTRACT,Acquirer PSP1 ATM,Acquirer ATM</REPLACEVALUE>
+	</export>
+	<export table="CBR_SERVICE_CONTRACT"> 
+		<where> service_contract_id in ('114')   </where>
+		<REPLACEVALUE>NOTE_TEXT,,</REPLACEVALUE>
+	</export>
+	<export table="cbr_assigned_services"> 
+		<where> service_contract_id in ('114')   </where>
+	</export>
+
+	<export table="CHT_SERVICES"> 
+		<where> index_field in ('102', '201', '650', '651')  </where>
+	</export>
+	<export table="CHT_ACCOUNT_CONDITION_SET"> 
+		<where> index_field in ('501','502')   </where>
+	</export>
+
+	<export table="cbr_account_type"> 
+		<where> account_type_id in ('006', '011')   </where>
+	</export>
+
+	<export table="CHT_ACCOUNT_TYPE_ID"> 
+		<where> index_field in ('006','011')   </where>
+	</export>
+
+	<export table="CBR_POSTING_INSTRUCTIONS"> 
+		<where> service_contract_id in ('114') and  account_type_id in ('006', '011')   </where>
+	</export>
+	
+	<export table="CIS_CLIENT_DETAILS"> 
+		<where> CLIENT_NUMBER IN ('99999903')   </where>
+	</export>
+
+	<export table="CBR_CHANNEL_DEFINITION"> 
+		<where> CLIENT_NUMBER IN ('99999903')   </where>
+	</export>
+
+	<export table="CBR_CHART_OF_ACCOUNTS"> 
+		<where> synth_extension = '101'  </where>
+	</export>
+	
+	<export table="CBR_CHART_OF_ACCOUNTS"> 
+		<where> clearing_channel = '102'  </where>
+	</export>
+
+	<export table="CBR_CONTRACT_ACCT_TYPES"> 
+		<where> service_contract_id in ('114') and  account_type_id in ('006', '011')  </where>
+	</export>
+	
+	
+	<export table="CBR_CHART_OF_ACCOUNTS"> 
+		<where> SERVICE_CONTRACT_ID in ('114')    </where>
+	</export>
+	<export table="CBR_TRANSACTION_CHARGES"> 
+		<where> SERVICE_CONTRACT_ID in ('114')   </where>
+	</export>
+
+		<export table="CBR_FX_RATE_RULES"> 
+		<where> clearing_channel in ('101', '102') </where>
+	</export>
+
+	<!-- child tables must be declared before parent table-->
+	<export table="CBR_ACCT_RULES_INSTRUCTIONS" parent="CBR_ACCT_RULES_GROUP" childrenField="RECORD_ID_NUMBER"> 
+		<where> Institution_number = ':institution_number' and record_id_number in (select distinct record_id_number from CBR_ACCT_RULES_GROUP where Institution_number = ':institution_number' and clearing_channel = '080')   </where>
+		<REPLACEVALUE>RECORD_ID_NUMBER,v_seq_num,BW_CODE_LIBRARY.GETNEXTSEQNUMBER('015',1)</REPLACEVALUE>
+	</export>
+	
+	<export table="CBR_ACCT_RULES_GROUP" parentField="RECORD_ID_NUMBER"> 
+		<where> clearing_channel in ('080') </where>
+		<REPLACEVALUE>RECORD_ID_NUMBER,v_seq_num,BW_CODE_LIBRARY.GETNEXTSEQNUMBER('015',1)</REPLACEVALUE>
+	</export>
+</Module>
+</root>

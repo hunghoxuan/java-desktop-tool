@@ -1,0 +1,1 @@
+. $PATH010EDITOR/Apply_script_2.sh MC_EBCDIC_Gen_Chargeback_PAN.1sc "$1" "/CI_Pipeline/Profiles/merchant_portal/uploads/$2" "$3" "$4"

@@ -1,0 +1,5 @@
+RS2 BA TOOLS @ 2022
+Version 0.62.0
+last changed: Frankfurt, Germany, May 2022
+Copyright ©RS2 Germany GmbH (Frankfurt, Germany) 
+https://rs2.com

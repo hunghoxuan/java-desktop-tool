@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "CARDS"> 
+<TableExtractDefinition TableName="SVC_CARD_ACCUMULATOR"/>
+<TableExtractDefinition TableName="SVC_CARD_INFORMATION"/>
+<TableExtractDefinition TableName="SVC_CARD_INFORMATION_HISTORY"/>
+<TableExtractDefinition TableName="SVC_CARD_INFORMATION_PREVIEW"/>
+<TableExtractDefinition TableName="SVC_CARD_REGION_CODES"/>
+<TableExtractDefinition TableName="SVC_CARD_STATUS_INSTRUCTIONS"/>
+<TableExtractDefinition TableName="SVC_CLIENT_CARDS"/>
+<TableExtractDefinition TableName="SVC_CLIENT_CARDS_HISTORY"/>
+<TableExtractDefinition TableName="SVC_CLIENT_CARDS_PREVIEW"/>
+<TableExtractDefinition TableName="SVC_EMV_SCRIPTS"/>
+<TableExtractDefinition TableName="SVC_EMV_SCRIPTS_HIST"/>
+<TableExtractDefinition TableName="SVC_VAU_ADVICE"/>
+
+</Module>
+</root>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<root>
+<Module ModuleName = "copyGL"> 
+	<TableExtractDefinition TableName="CBR_ACCT_RULES_GROUP"> 
+		<WhereClause> clearing_Channel in ('031','032','005','015','006','037')  </WhereClause>		
+	</TableExtractDefinition>
+		<TableExtractDefinition TableName="CBR_ACCT_RULES_INSTRUCTIONS" > 
+		<WhereClause> (record_id_number,institution_number) in (select record_id_number,institution_number from CBR_ACCT_RULES_GROUP where clearing_Channel in ('031','032','005','015','006','037') ) </WhereClause>		
+	</TableExtractDefinition>
+		
+	<TableExtractDefinition TableName="CBR_CHART_OF_ACCOUNTS" > 
+		<WhereClause> GL_acct_currency in ('826','978') </WhereClause>
+		<ReplaceValue>
+GL_acct_currency, '826','995' 
+acct_currency '826','995'
+		</ReplaceValue>		
+	</TableExtractDefinition>
+	
+
+</Module>
+</root>
